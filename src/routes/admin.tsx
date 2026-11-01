@@ -78,7 +78,7 @@ function Admin() {
   const roles = session.data?.roles ?? [];
   const checking = session.isLoading;
   const isAdmin = roles.includes("admin");
-  const canEvents = isAdmin || roles.includes("editor");
+  const canEvents = isAdmin || roles.includes("editor") || roles.includes("event_manager");
   const canBookings = isAdmin || roles.includes("booking_manager") || roles.includes("executive");
   const isStaff = roles.length > 0;
   const [tab, setTab] = useState<"bookings" | "events" | "halls" | "executives" | "users">("bookings");

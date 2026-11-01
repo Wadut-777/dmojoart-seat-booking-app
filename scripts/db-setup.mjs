@@ -5,6 +5,7 @@ import { readdir, readFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { connect } from "./db-lib.mjs";
+import { seedCmsDefaults } from "./cms-defaults.mjs";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 const db = await connect(true);
@@ -24,6 +25,9 @@ try {
     await db.query("INSERT INTO schema_migrations (name) VALUES (?)", [file]);
     console.log(`applied  ${file}`);
   }
+
+  // Placeholder CMS content (idempotent: never overwrites edits).
+  await seedCmsDefaults(db);
 
   if (process.argv.includes("--seed")) {
     const [[h]] = await db.query("SELECT COUNT(*) AS n FROM halls");
