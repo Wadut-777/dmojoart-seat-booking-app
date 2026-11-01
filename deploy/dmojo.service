@@ -1,0 +1,19 @@
+[Unit]
+Description=D Mojo Art ticket booking site
+After=network.target mysql.service
+Wants=mysql.service
+
+[Service]
+Type=simple
+User=dmojo
+Group=dmojo
+WorkingDirectory=/var/www/dmojo
+ExecStart=/usr/bin/node --env-file=/etc/dmojo.env .output/server/index.mjs
+Restart=always
+RestartSec=3
+NoNewPrivileges=true
+ProtectSystem=full
+ReadWritePaths=/var/lib/dmojo
+
+[Install]
+WantedBy=multi-user.target

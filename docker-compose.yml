@@ -1,0 +1,23 @@
+# Local MySQL for D Mojo Stage.  Start with:  npm run db:up
+services:
+  db:
+    image: mysql:8.4
+    restart: unless-stopped
+    command: --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci
+    environment:
+      MYSQL_ROOT_PASSWORD: dmojo-root
+      MYSQL_DATABASE: dmojo
+      MYSQL_USER: dmojo
+      MYSQL_PASSWORD: dmojo
+    ports:
+      - "3306:3306"
+    volumes:
+      - dmojo-mysql:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "127.0.0.1", "-uroot", "-pdmojo-root"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+volumes:
+  dmojo-mysql:

@@ -1,0 +1,5 @@
+- Runs on MySQL/MariaDB (mysql2; IDs are app-generated UUIDs, timestamps UTC) (see README). All data access goes through server functions in src/lib/*.functions.ts; role checks use requireUser([...]) from src/server/auth.server.ts (replaces the old Supabase RLS).
+- Staff roles live in user_roles (admin, editor, booking_manager, executive); staff accounts are created only by admins through staff.functions.ts.
+- Extra page content lives in page_blocks (per page key, ordered by position) rendered by PageBlocks in __root; block images are uploaded to STORAGE_DIR under blocks/ and served from /media/*.
+- Row and column layouts store nested blocks inside their page_blocks data; nested edits save through the parent block.
+- Page builder changes are drafts until an admin/editor publishes the page; visitors read only the published_* columns.
