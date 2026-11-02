@@ -142,3 +142,78 @@
   border-radius: var(--radius-xl);
   box-shadow: var(--shadow-card);
 }
+
+/* ───────────── DMOJO ART cinematic layer ───────────── */
+
+html {
+  scroll-behavior: smooth;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+}
+
+/* Neutral stand-in shown wherever no image has been chosen yet. */
+.ph-art {
+  background:
+    radial-gradient(120% 90% at 20% 10%, color-mix(in oklab, var(--primary) 22%, transparent), transparent 60%),
+    radial-gradient(90% 70% at 90% 90%, color-mix(in oklab, var(--primary) 10%, transparent), transparent 55%),
+    linear-gradient(135deg, var(--card), var(--background));
+}
+
+/* Scroll-in reveal: content is visible by default; JS adds .reveal-hidden only for off-screen sections. */
+.reveal {
+  transition:
+    opacity 0.8s ease,
+    transform 0.8s cubic-bezier(0.2, 0.7, 0.2, 1);
+}
+.reveal.reveal-hidden {
+  opacity: 0;
+  transform: translateY(28px);
+}
+
+.img-zoom {
+  transition: transform 0.9s cubic-bezier(0.2, 0.7, 0.2, 1);
+}
+.group:hover .img-zoom,
+.img-zoom:hover {
+  transform: scale(1.06);
+}
+
+@keyframes scroll-cue {
+  0% {
+    transform: scaleY(0);
+    transform-origin: top;
+  }
+  50% {
+    transform: scaleY(1);
+    transform-origin: top;
+  }
+  51% {
+    transform-origin: bottom;
+  }
+  100% {
+    transform: scaleY(0);
+    transform-origin: bottom;
+  }
+}
+.scroll-cue {
+  animation: scroll-cue 2.2s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .reveal,
+  .img-zoom,
+  .scroll-cue {
+    transition: none;
+    animation: none;
+  }
+  .reveal.reveal-hidden {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* Sharper, more cinematic: square corners on the new sections' buttons and cards come from their own classes. */

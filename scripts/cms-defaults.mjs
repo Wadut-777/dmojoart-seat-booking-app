@@ -5,6 +5,9 @@
 // Images/videos are intentionally empty strings: the site renders a neutral cinematic placeholder until
 // real media is chosen from the media library.
 import { randomUUID } from "node:crypto";
+import { readFile } from "node:fs/promises";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
 
 const settings = {
   brand: {
@@ -165,5 +168,27 @@ export async function seedCmsDefaults(db) {
       created += 1;
     }
   }
-  console.log(`cms defaults ready (${created} new placeholder items)`);
+
+  // Default sections for each page, published immediately. Skipped for any page that already has sections,
+  // so edits made in the admin are never overwritten.
+  const here = dirname(fileURLToPath(import.meta.url));
+  const layout = JSON.parse(await readFile(join(here, "..", "src", "lib", "cms-defaults.json"), "utf8"));
+  let sections = 0;
+  for (const [slug, entries] of Object.entries(layout.layouts)) {
+    const page = `cms:${slug}`;
+    const [[row]] = await db.query("SELECT COUNT(*) AS n FROM page_blocks WHERE page = ?", [page]);
+    if (Number(row.n) > 0) continue;
+    for (const [position, entry] of entries.entries()) {
+      const type = typeof entry === "string" ? entry : entry.type;
+      const override = typeof entry === "string" ? {} : (entry.data ?? {});
+      const data = JSON.stringify({ ...structuredClone(layout.blocks[type] ?? {}), ...override });
+      await db.query(
+        `INSERT INTO page_blocks (id, page, position, block_type, data, published_data, published_position, published_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, UTC_TIMESTAMP(3))`,
+        [randomUUID(), page, position, type, data, data, position],
+      );
+      sections += 1;
+    }
+  }
+  console.log(`cms defaults ready (${created} new placeholder items, ${sections} new page sections)`);
 }
