@@ -123,7 +123,8 @@ export const publishPage = createServerFn({ method: "POST" })
   .handler(async ({ data }) => {
     const { requireUser } = await import("@/server/auth.server");
     const { transaction } = await import("@/server/db.server");
-    await requireUser(EDITORS);
+    const user = await requireUser(EDITORS);
+    const { audit } = await import("@/server/audit.server");
     await transaction(async (tx) => {
       await tx.exec`DELETE FROM page_blocks WHERE page = ${data.page} AND draft_deleted = 1`;
       await tx.exec`UPDATE page_blocks
@@ -131,5 +132,6 @@ export const publishPage = createServerFn({ method: "POST" })
                         published_at = UTC_TIMESTAMP(3), updated_at = UTC_TIMESTAMP(3)
                     WHERE page = ${data.page}`;
     });
+    await audit(user, "publish", "page", data.page);
     return { ok: true };
   });

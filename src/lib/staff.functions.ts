@@ -1,7 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 
-export const STAFF_ROLES = ["admin", "editor", "booking_manager", "executive"] as const;
+export const STAFF_ROLES = ["admin", "editor", "booking_manager", "executive", "event_manager"] as const;
 export type StaffRole = (typeof STAFF_ROLES)[number];
 
 export type StaffMember = {

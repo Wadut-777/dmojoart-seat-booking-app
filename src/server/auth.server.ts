@@ -3,7 +3,7 @@ import { deleteCookie, getCookie, setCookie } from "@tanstack/react-start/server
 
 import { dbTime, exec, sql, uuid } from "./db.server";
 
-export const STAFF_ROLES = ["admin", "editor", "booking_manager", "executive"] as const;
+export const STAFF_ROLES = ["admin", "editor", "booking_manager", "executive", "event_manager"] as const;
 export type StaffRole = (typeof STAFF_ROLES)[number];
 
 const COOKIE = "dmojo_session";

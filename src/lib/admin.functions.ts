@@ -176,7 +176,7 @@ export type AdminEvent = {
 export const adminListEvents = createServerFn({ method: "GET" }).handler(async (): Promise<AdminEvent[]> => {
   const { requireUser } = await import("@/server/auth.server");
   const { sql } = await import("@/server/db.server");
-  await requireUser(["admin", "editor"]);
+  await requireUser(["admin", "editor", "event_manager"]);
   return await sql<AdminEvent[]>`
     SELECT id, title, tagline, synopsis, event_type, release_date, venue, city, poster_url, trailer_url,
            booking_open, is_active
@@ -201,7 +201,7 @@ export const saveEvent = createServerFn({ method: "POST" })
   .handler(async ({ data: e }) => {
     const { requireUser } = await import("@/server/auth.server");
     const { exec, uuid } = await import("@/server/db.server");
-    await requireUser(["admin", "editor"]);
+    await requireUser(["admin", "editor", "event_manager"]);
     if (e.id) {
       const r = await exec`
         UPDATE events SET title = ${e.title}, tagline = ${blank(e.tagline)}, synopsis = ${blank(e.synopsis)},
@@ -225,7 +225,7 @@ export const setEventFlag = createServerFn({ method: "POST" })
   .handler(async ({ data }) => {
     const { requireUser } = await import("@/server/auth.server");
     const { exec } = await import("@/server/db.server");
-    await requireUser(["admin", "editor"]);
+    await requireUser(["admin", "editor", "event_manager"]);
     if (data.field === "booking_open") await exec`UPDATE events SET booking_open = ${data.value ? 1 : 0} WHERE id = ${data.id}`;
     else await exec`UPDATE events SET is_active = ${data.value ? 1 : 0} WHERE id = ${data.id}`;
     return { ok: true };

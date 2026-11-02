@@ -10,6 +10,7 @@ export const ROLE_LABELS: Record<string, string> = {
   editor: "Editor — pages & events",
   booking_manager: "Booking manager — bookings & tickets",
   executive: "Executive — own bookings only",
+  event_manager: "Event manager — events & enquiries",
 };
 
 const input = "rounded-lg border border-input bg-background px-3 py-2 text-sm";

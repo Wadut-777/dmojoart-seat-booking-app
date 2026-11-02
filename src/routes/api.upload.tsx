@@ -16,7 +16,7 @@ export const Route = createFileRoute("/api/upload")({
         const { requireUser } = await import("@/server/auth.server");
         const { saveUpload, UPLOAD_FOLDERS } = await import("@/server/media.server");
         try {
-          await requireUser(["admin", "editor"]);
+          await requireUser(["admin", "editor", "event_manager"]);
         } catch (e) {
           const msg = e instanceof Error ? e.message : "Unauthorized";
           return json({ error: msg }, msg.startsWith("Forbidden") ? 403 : 401);

@@ -20,6 +20,7 @@ import { signOut as signOutFn } from "@/lib/auth.functions";
 import { uploadMedia } from "@/lib/media";
 import { SESSION_KEY, useSession } from "@/hooks/use-roles";
 import { StaffManager, ROLE_LABELS } from "@/components/staff-manager";
+import { CmsAdmin } from "@/components/cms-admin";
 
 export const Route = createFileRoute("/admin")({
   head: () => ({
@@ -78,17 +79,19 @@ function Admin() {
   const roles = session.data?.roles ?? [];
   const checking = session.isLoading;
   const isAdmin = roles.includes("admin");
-  const canEvents = isAdmin || roles.includes("editor");
+  const canEvents = isAdmin || roles.includes("editor") || roles.includes("event_manager");
   const canBookings = isAdmin || roles.includes("booking_manager") || roles.includes("executive");
   const isStaff = roles.length > 0;
-  const [tab, setTab] = useState<"bookings" | "events" | "halls" | "executives" | "users">("bookings");
+  const [tab, setTab] = useState<"bookings" | "events" | "halls" | "executives" | "users" | "website">("bookings");
   const tabs = [
     ...(canBookings ? [{ id: "bookings" as const, label: "Bookings" }] : []),
     ...(canEvents ? [{ id: "events" as const, label: "Movies & events" }] : []),
+    ...(canEvents ? [{ id: "website" as const, label: "Website content" }] : []),
     ...(isAdmin ? [{ id: "halls" as const, label: "Cinema halls" }] : []),
     ...(isAdmin ? [{ id: "executives" as const, label: "Executives" }] : []),
     ...(isAdmin ? [{ id: "users" as const, label: "Users & roles" }] : []),
   ];
+  const activeTab = tabs.some((t) => t.id === tab) ? tab : (tabs[0]?.id ?? tab);
   const [ticketBooking, setTicketBooking] = useState<BookingRow | null>(null);
   const ticketRef = useRef<HTMLDivElement>(null);
 
@@ -472,7 +475,7 @@ function Admin() {
             key={t.id}
             onClick={() => setTab(t.id)}
             className={`rounded-full px-5 py-2 text-sm font-bold transition ${
-              tab === t.id
+              activeTab === t.id
                 ? "gold-surface"
                 : "border border-border text-muted-foreground hover:bg-muted"
             }`}
@@ -488,9 +491,11 @@ function Admin() {
         <Stat label="Collected" value={`₹${totals.revenue}`} />
       </div>
 
-      {tab === "users" && isAdmin && <StaffManager executives={(executives.data ?? []).map((x) => ({ id: x.id, name: x.name }))} />}
+      {activeTab === "website" && canEvents && <CmsAdmin roles={roles} />}
 
-      {tab === "events" && canEvents && (
+      {activeTab === "users" && isAdmin && <StaffManager executives={(executives.data ?? []).map((x) => ({ id: x.id, name: x.name }))} />}
+
+      {activeTab === "events" && canEvents && (
       <section className="panel p-6 md:p-8">
         <h2 className="text-2xl">Movies &amp; events</h2>
         <form onSubmit={addEvent} className="mt-5 space-y-4">
@@ -644,7 +649,7 @@ function Admin() {
       </section>
       )}
 
-      {tab === "halls" && isAdmin && (
+      {activeTab === "halls" && isAdmin && (
       <section className="panel p-6 md:p-8">
         <h2 className="text-2xl">Add cinema hall</h2>
         <form onSubmit={addHall} className="mt-5 space-y-4">
@@ -770,7 +775,7 @@ function Admin() {
       </section>
       )}
 
-      {tab === "executives" && isAdmin && (
+      {activeTab === "executives" && isAdmin && (
       <section className="panel p-6 md:p-8">
         <h2 className="text-2xl">Register executive</h2>
         <form onSubmit={addExecutive} className="mt-5 space-y-4">
@@ -877,7 +882,7 @@ function Admin() {
 
 
 
-      {tab === "bookings" && canBookings && (
+      {activeTab === "bookings" && canBookings && (
       <section className="panel p-6 md:p-8">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <h2 className="text-2xl">Booking records</h2>

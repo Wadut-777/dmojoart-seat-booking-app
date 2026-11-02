@@ -12,7 +12,10 @@ import type { ReactNode } from "react";
 import appCss from "../styles.css?url";
 import { SiteHeader, SiteFooter } from "@/components/site-chrome";
 import { PageBlocks } from "@/components/page-blocks";
+import { SETTINGS_KEY, mergeSettings, useSiteSettings } from "@/components/cms/data";
+import { getSiteSettings } from "@/lib/cms.functions";
 import { useRouterState } from "@tanstack/react-router";
+import { useEffect } from "react";
 import { Toaster } from "@/components/ui/sonner";
 
 function NotFoundComponent() {
@@ -73,27 +76,38 @@ function ErrorComponent({ error, reset }: import("@tanstack/react-router").Error
 }
 
 export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()({
-  head: () => ({
-    meta: [
-      { charSet: "utf-8" },
-      { name: "viewport", content: "width=device-width, initial-scale=1" },
-      { title: "D Mojo Art — Films & Events" },
-      { name: "description", content: "D Mojo Art production house. PremXL in cinemas 2 Oct 2026." },
-      { name: "author", content: "D Mojo Art" },
-      { property: "og:type", content: "website" },
-      { name: "twitter:card", content: "summary_large_image" },
-    ],
-    links: [
-      { rel: "stylesheet", href: appCss },
-      { rel: "preconnect", href: "https://fonts.googleapis.com" },
-      { rel: "preconnect", href: "https://fonts.gstatic.com", crossOrigin: "anonymous" },
-      {
-        rel: "stylesheet",
-        href: "https://fonts.googleapis.com/css2?family=Anton&family=Manrope:wght@400;600;800&display=swap",
-      },
-      { rel: "icon", type: "image/png", href: "/favicon.png" },
-    ],
-  }),
+  // Brand settings are editable in the admin; load them once so the first render (and <head>) already use them.
+  loader: async ({ context }) => {
+    const raw = await context.queryClient.ensureQueryData({ queryKey: SETTINGS_KEY, queryFn: () => getSiteSettings() });
+    return { settings: mergeSettings(raw) };
+  },
+  head: ({ loaderData }) => {
+    const brand = loaderData?.settings.brand.name ?? "D Mojo Art";
+    const token = loaderData?.settings.analytics.searchConsoleToken ?? "";
+    return {
+      meta: [
+        { charSet: "utf-8" },
+        { name: "viewport", content: "width=device-width, initial-scale=1" },
+        { title: `${brand} — Concerts, Films & Live Entertainment` },
+        { name: "description", content: loaderData?.settings.brand.tagline ?? "" },
+        { name: "author", content: brand },
+        { property: "og:site_name", content: brand },
+        { property: "og:type", content: "website" },
+        { name: "twitter:card", content: "summary_large_image" },
+        ...(/^[\w-]{10,100}$/.test(token) ? [{ name: "google-site-verification", content: token }] : []),
+      ],
+      links: [
+        { rel: "stylesheet", href: appCss },
+        { rel: "preconnect", href: "https://fonts.googleapis.com" },
+        { rel: "preconnect", href: "https://fonts.gstatic.com", crossOrigin: "anonymous" },
+        {
+          rel: "stylesheet",
+          href: "https://fonts.googleapis.com/css2?family=Anton&family=Manrope:wght@400;600;800&display=swap",
+        },
+        { rel: "icon", type: "image/png", href: "/favicon.png" },
+      ],
+    };
+  },
   shellComponent: RootShell,
   component: RootComponent,
   notFoundComponent: NotFoundComponent,
@@ -114,24 +128,59 @@ function RootShell({ children }: { children: ReactNode }) {
   );
 }
 
+// Pages whose body is still the older page builder. "/" and "/about" now use the new CMS sections.
 const BUILDER_PAGES: Record<string, string> = {
-  "/": "home",
-  "/about": "about",
   "/productions": "productions",
   "/events": "events",
   "/prebook": "prebook",
 };
 
+/** Pages that start with a full-bleed banner, so the fixed header floats over them. Others get top padding. */
+const FULL_BLEED = new Set(["/", "/about", "/music", "/film", "/music-production", "/event-management", "/comedy", "/portfolio", "/contact"]);
+const HEX = /^#[0-9a-fA-F]{6}$/;
+
+/** Applies the editable colour theme and loads Google Analytics when an ID is configured. */
+function ThemeAndAnalytics() {
+  const { theme, analytics } = useSiteSettings();
+  const css = [
+    HEX.test(theme.accent) && `--primary:${theme.accent};--ring:${theme.accent};--gold:${theme.accent};--sidebar-primary:${theme.accent};`,
+    HEX.test(theme.accent) && HEX.test(theme.accentSoft) && `--gradient-gold:linear-gradient(100deg,${theme.accentSoft},${theme.accent});`,
+    HEX.test(theme.background) && `--background:${theme.background};`,
+    HEX.test(theme.surface) && `--card:${theme.surface};--popover:${theme.surface};`,
+  ]
+    .filter(Boolean)
+    .join("");
+
+  useEffect(() => {
+    const id = analytics.gaId;
+    if (!/^G-[A-Z0-9]{4,20}$/.test(id) || document.getElementById("ga-script")) return;
+    const script = document.createElement("script");
+    script.id = "ga-script";
+    script.async = true;
+    script.src = `https://www.googletagmanager.com/gtag/js?id=${id}`;
+    document.head.appendChild(script);
+    const w = window as unknown as { dataLayer?: unknown[] };
+    w.dataLayer = w.dataLayer ?? [];
+    const gtag = (...args: unknown[]) => w.dataLayer?.push(args);
+    gtag("js", new Date());
+    gtag("config", id);
+  }, [analytics.gaId]);
+
+  return css ? <style dangerouslySetInnerHTML={{ __html: `:root{${css}}` }} /> : null;
+}
+
 function RootComponent() {
   const { queryClient } = Route.useRouteContext();
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   const builderPage = BUILDER_PAGES[pathname];
+  const fullBleed = FULL_BLEED.has(pathname);
 
   return (
     <QueryClientProvider client={queryClient}>
+      <ThemeAndAnalytics />
       <div className="flex min-h-screen flex-col">
         <SiteHeader />
-        <main className="flex-1">
+        <main className={fullBleed ? "flex-1" : "flex-1 pt-20"}>
           {/* Required: nested routes render here. */}
           <Outlet />
           {builderPage && <PageBlocks key={builderPage} page={builderPage} />}
