@@ -1,5 +1,5 @@
 import { Link } from "@tanstack/react-router";
-import { ImagePlus } from "lucide-react";
+import { ArrowRight, ImagePlus } from "lucide-react";
 import { createContext, useContext, useRef, type ElementType, type ReactNode } from "react";
 import { toast } from "sonner";
 
@@ -102,25 +102,39 @@ export function SmartLink({ href, className, children }: { href: string; classNa
   );
 }
 
-/** Button whose label is `${k}Text` and destination is `${k}Link` in the current section. */
-export function Cta({ k, variant = "solid", className }: { k: string; variant?: "solid" | "ghost"; className?: string }) {
+/**
+ * Button whose label is `${k}Text` and destination is `${k}Link` in the current section.
+ * "solid" is the blue pill with a round arrow; "ghost" is the outlined pill (like "To watchlist" in the design).
+ */
+export function Cta({
+  k,
+  variant = "solid",
+  className,
+}: {
+  k: string;
+  variant?: "solid" | "ghost" | "dark";
+  className?: string;
+}) {
   const { data } = useBlock();
   const text = str(data, `${k}Text`);
   const href = str(data, `${k}Link`);
   const ed = useEditor();
   if (!text && !ed.editing) return null;
+  const base = "inline-flex items-center justify-center gap-3 rounded-full text-sm font-medium uppercase tracking-wide transition-all";
+  const look =
+    variant === "solid"
+      ? "gold-surface py-2 pl-6 pr-2 hover:brightness-110"
+      : variant === "dark"
+        ? "bg-background px-8 py-3.5 text-foreground hover:bg-black"
+        : "border border-border px-7 py-3.5 text-primary hover:border-primary";
   return (
-    <SmartLink
-      href={href}
-      className={cn(
-        "inline-flex items-center justify-center px-7 py-3 text-sm font-bold uppercase tracking-[0.15em] transition-all",
-        variant === "solid"
-          ? "gold-surface hover:brightness-110"
-          : "border border-foreground/40 text-foreground hover:border-primary hover:text-primary",
-        className,
-      )}
-    >
+    <SmartLink href={href} className={cn(base, look, className)}>
       <T k={`${k}Text`} />
+      {variant === "solid" && (
+        <span className="grid size-10 place-items-center rounded-full bg-black/15" aria-hidden="true">
+          <ArrowRight className="size-4" />
+        </span>
+      )}
     </SmartLink>
   );
 }
@@ -189,7 +203,7 @@ export function Pic({ k, alt, className, label }: { k: string; alt: string; clas
           <button
             type="button"
             onClick={() => input.current?.click()}
-            className="gold-surface absolute right-3 top-3 z-20 inline-flex items-center gap-2 px-3 py-2 text-xs font-bold"
+            className="gold-surface absolute right-3 top-3 z-20 inline-flex items-center gap-2 rounded-full px-4 py-2 text-xs font-bold"
           >
             <ImagePlus className="size-4" /> Replace image
           </button>

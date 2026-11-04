@@ -272,7 +272,7 @@ function Prebook() {
             <select
               value={eventId}
               onChange={(e) => setEventId(e.target.value)}
-              className="w-full rounded-lg border border-input bg-background px-4 py-3"
+              className="w-full rounded-2xl border border-input bg-card px-4 py-3"
             >
               {events?.map((e) => (
                 <option key={e.id} value={e.id}>
@@ -290,7 +290,7 @@ function Prebook() {
                 setHallId("");
                 setCategory(null);
               }}
-              className="w-full rounded-lg border border-input bg-background px-4 py-3"
+              className="w-full rounded-2xl border border-input bg-card px-4 py-3"
             >
               <option value="">All cities</option>
               {cities.map((c) => (
@@ -309,7 +309,7 @@ function Prebook() {
                     setHallId(h.id);
                     setCategory(null);
                   }}
-                  className={`rounded-xl border p-4 text-left transition-colors ${
+                  className={`rounded-2xl border p-4 text-left transition-colors ${
                     hallId === h.id
                       ? "border-primary bg-accent/30"
                       : "border-border hover:bg-muted/60"
@@ -345,7 +345,7 @@ function Prebook() {
                     setSource(key);
                     if (key === "self") setExecutiveId("");
                   }}
-                  className={`rounded-xl border p-4 text-left font-semibold transition-colors ${
+                  className={`rounded-2xl border p-4 text-left font-semibold transition-colors ${
                     source === key
                       ? "border-primary bg-accent/30"
                       : "border-border hover:bg-muted/60"
@@ -359,7 +359,7 @@ function Prebook() {
               <select
                 value={executiveId}
                 onChange={(e) => setExecutiveId(e.target.value)}
-                className="mt-3 w-full rounded-lg border border-input bg-background px-4 py-3"
+                className="mt-3 w-full rounded-2xl border border-input bg-card px-4 py-3"
               >
                 <option value="">Select executive</option>
                 {executives?.map((ex) => (
@@ -388,7 +388,7 @@ function Prebook() {
                         setCategory({ id: c.id, name: c.name, price: c.price });
                         if (left !== null) setSeats((n) => Math.max(1, Math.min(n, left)));
                       }}
-                      className={`rounded-xl border p-4 text-left transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${
+                      className={`rounded-2xl border p-4 text-left transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${
                         category?.name === c.name
                           ? "border-primary bg-accent/30"
                           : "border-border hover:bg-muted/60"
@@ -426,7 +426,7 @@ function Prebook() {
                 value={form.phone}
                 onChange={(v) => setForm({ ...form, phone: v.replace(/\D/g, "").slice(0, 10) })}
               />
-              <div className="rounded-lg border border-input bg-background px-4 py-3 text-sm text-muted-foreground">
+              <div className="rounded-2xl border border-input bg-card px-4 py-3 text-sm text-muted-foreground">
                 City: <span className="text-foreground">{hall?.city ?? "—"}</span>
               </div>
               <div>
@@ -436,7 +436,7 @@ function Prebook() {
                 <select
                   value={seats}
                   onChange={(e) => setSeats(Number(e.target.value))}
-                  className="w-full rounded-lg border border-input bg-background px-4 py-3"
+                  className="w-full rounded-2xl border border-input bg-card px-4 py-3"
                 >
                   {[1, 2, 3, 4, 5, 6, 8, 10].filter((n) => seatsAvailable === null || n <= seatsAvailable).map((n) => (
                     <option key={n} value={n}>
@@ -448,10 +448,10 @@ function Prebook() {
             </div>
           </Field>
 
-          <div className="rounded-xl border border-primary/40 bg-accent/20 p-6 text-center">
-            <p className="text-xs font-bold tracking-[0.3em] text-muted-foreground">TOTAL PAYABLE</p>
-            <p className="gold-text mt-1 font-display text-5xl">₹{total}</p>
-            <p className="text-xs text-muted-foreground">
+          <div className="rounded-3xl bg-primary p-6 text-primary-foreground text-center">
+            <p className="text-sm font-medium opacity-70">Total payable</p>
+            <p className="mt-1 font-display text-5xl font-bold">₹{total}</p>
+            <p className="text-xs opacity-70">
               {category ? `${seats} × ${category.name} @ ₹${category.price}` : "Select a category"}
             </p>
           </div>
@@ -459,7 +459,7 @@ function Prebook() {
           <button
             onClick={confirm}
             disabled={saving}
-            className="gold-surface glow inline-flex w-full items-center justify-center gap-2 rounded-full px-6 py-4 text-lg font-bold disabled:opacity-60"
+            className="gold-surface glow inline-flex w-full items-center justify-center gap-2 rounded-full px-6 py-4 text-base font-medium uppercase tracking-wide disabled:opacity-60"
           >
             <Ticket className="size-5" /> {saving ? "Reserving…" : "Proceed to Payment"}
           </button>
@@ -477,11 +477,11 @@ function Prebook() {
               {pending.seats} × {pending.category} · {pending.hallName}, {pending.city}
             </p>
             {payError && (
-              <p className="mt-4 rounded-lg border border-destructive/60 bg-destructive/10 p-3 text-xs text-destructive">
+              <p className="mt-4 rounded-2xl border border-destructive/60 bg-destructive/10 p-3 text-xs text-destructive">
                 Last payment attempt did not go through: {payError}
               </p>
             )}
-            <p className="mt-4 rounded-lg border border-border bg-muted/40 p-3 text-xs text-muted-foreground">
+            <p className="mt-4 rounded-2xl border border-border bg-muted/40 p-3 text-xs text-muted-foreground">
               You will pay securely on the NTT DATA payment page — UPI, cards, net banking and
               wallets are accepted. Your ticket is issued as soon as the payment succeeds.
             </p>
@@ -515,7 +515,7 @@ function Prebook() {
 
             <div
               ref={ticketRef}
-              className="overflow-hidden rounded-2xl border border-primary/50 bg-card"
+              className="overflow-hidden rounded-3xl border border-primary/50 bg-card"
             >
               <div className="gold-surface flex items-center justify-between px-6 py-4">
                 <p className="font-display text-2xl tracking-wide">D MOJO ART</p>
@@ -604,7 +604,7 @@ function Input({
       placeholder={placeholder}
       value={value}
       onChange={(e) => onChange(e.target.value)}
-      className="w-full rounded-lg border border-input bg-background px-4 py-3 outline-none focus:border-primary"
+      className="w-full rounded-2xl border border-input bg-card px-4 py-3 outline-none focus:border-primary"
     />
   );
 }

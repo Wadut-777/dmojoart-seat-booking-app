@@ -240,7 +240,7 @@ function EditableSection({
       style={{ transform: CSS.Transform.toString(transform), transition }}
       className={cn("group/section relative outline-1 outline-dashed outline-transparent hover:outline-primary/60", isDragging && "z-50 opacity-70")}
     >
-      <div className="absolute left-2 top-2 z-30 flex items-center gap-1 bg-background/95 p-1 text-xs shadow-lg">
+      <div className="absolute left-2 top-2 z-30 flex items-center gap-1 rounded-full bg-background/95 p-1 text-xs shadow-lg">
         <button type="button" className="cursor-grab p-2 touch-none" aria-label={`Drag to move ${label}`} {...attributes} {...listeners}>
           <GripVertical className="size-4" />
         </button>

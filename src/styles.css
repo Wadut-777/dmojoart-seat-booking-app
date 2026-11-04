@@ -32,6 +32,7 @@
   --color-ring: var(--ring);
   --color-ring-offset-background: var(--background);
   --color-gold: var(--gold);
+  --color-highlight: var(--highlight);
   --color-forest: var(--forest);
   --color-chart-1: var(--chart-1);
   --color-chart-2: var(--chart-2);
@@ -46,55 +47,53 @@
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-ring: var(--sidebar-ring);
-  --font-display: "Anton", "Arial Narrow", sans-serif;
+  --font-display: "Syne", "Manrope", system-ui, sans-serif;
   --font-sans: "Manrope", system-ui, sans-serif;
 }
 
 :root {
-  --radius: 0.75rem;
-  --background: oklch(0.16 0.014 160);
-  --foreground: oklch(0.96 0.01 100);
-  --card: oklch(0.21 0.02 160);
-  --card-foreground: oklch(0.96 0.01 100);
-  --popover: oklch(0.19 0.018 160);
-  --popover-foreground: oklch(0.96 0.01 100);
-  --primary: oklch(0.88 0.19 104);
-  --primary-foreground: oklch(0.19 0.03 150);
-  --secondary: oklch(0.32 0.06 155);
-  --secondary-foreground: oklch(0.96 0.01 100);
-  --muted: oklch(0.26 0.02 160);
-  --muted-foreground: oklch(0.73 0.02 130);
-  --accent: oklch(0.42 0.1 155);
-  --accent-foreground: oklch(0.97 0.01 100);
-  --destructive: oklch(0.58 0.21 25);
-  --destructive-foreground: oklch(0.98 0.005 100);
-  --border: oklch(0.32 0.03 155);
-  --input: oklch(0.3 0.03 155);
-  --ring: oklch(0.88 0.19 104);
-  --gold: oklch(0.88 0.19 104);
-  --forest: oklch(0.34 0.08 155);
+  --radius: 1.25rem;
+  --background: #14161b;
+  --foreground: #f5f6f8;
+  --card: #1e2128;
+  --card-foreground: #f5f6f8;
+  --popover: #1e2128;
+  --popover-foreground: #f5f6f8;
+  --primary: #92b0f4;
+  --primary-foreground: #10131a;
+  --secondary: #262a33;
+  --secondary-foreground: #f5f6f8;
+  --muted: #262a33;
+  --muted-foreground: #8d94a5;
+  --accent: #2a3042;
+  --accent-foreground: #f5f6f8;
+  --destructive: #ef5b4d;
+  --destructive-foreground: #ffffff;
+  --border: #2c303a;
+  --input: #2c303a;
+  --ring: #92b0f4;
+  --gold: #92b0f4;
+  --highlight: #f26b3a;
+  --forest: #2a3042;
   --chart-1: oklch(0.88 0.19 104);
   --chart-2: oklch(0.6 0.13 160);
   --chart-3: oklch(0.7 0.12 90);
   --chart-4: oklch(0.55 0.15 30);
   --chart-5: oklch(0.45 0.09 155);
-  --sidebar: oklch(0.19 0.018 160);
-  --sidebar-foreground: oklch(0.96 0.01 100);
-  --sidebar-primary: oklch(0.88 0.19 104);
-  --sidebar-primary-foreground: oklch(0.19 0.03 150);
-  --sidebar-accent: oklch(0.26 0.02 160);
-  --sidebar-accent-foreground: oklch(0.96 0.01 100);
-  --sidebar-border: oklch(0.32 0.03 155);
-  --sidebar-ring: oklch(0.88 0.19 104);
-  --gradient-hero: radial-gradient(
-      110% 80% at 50% 0%,
-      color-mix(in oklab, var(--forest) 70%, transparent),
-      transparent 70%
-    ),
-    linear-gradient(180deg, oklch(0.2 0.03 158), oklch(0.13 0.012 160));
-  --gradient-gold: linear-gradient(100deg, oklch(0.93 0.17 100), oklch(0.83 0.2 82));
-  --shadow-glow: 0 0 60px -12px color-mix(in oklab, var(--gold) 45%, transparent);
-  --shadow-card: 0 24px 60px -30px oklch(0 0 0 / 0.9);
+  --sidebar: #1e2128;
+  --sidebar-foreground: #f5f6f8;
+  --sidebar-primary: #92b0f4;
+  --sidebar-primary-foreground: #10131a;
+  --sidebar-accent: #262a33;
+  --sidebar-accent-foreground: #f5f6f8;
+  --sidebar-border: #2c303a;
+  --sidebar-ring: #92b0f4;
+  --gradient-hero: radial-gradient(70% 60% at 85% 0%, color-mix(in oklab, var(--highlight) 10%, transparent), transparent 70%),
+    radial-gradient(80% 70% at 10% 100%, color-mix(in oklab, var(--primary) 16%, transparent), transparent 70%),
+    linear-gradient(180deg, #181b22, #14161b);
+  --gradient-gold: linear-gradient(100deg, #a9c2f9, var(--primary));
+  --shadow-glow: 0 0 60px -14px color-mix(in oklab, var(--primary) 55%, transparent);
+  --shadow-card: 0 24px 60px -32px oklch(0 0 0 / 0.9);
 }
 
 @layer base {
@@ -104,6 +103,10 @@
 
   body {
     background-color: var(--color-background);
+    background-image:
+      radial-gradient(55% 40% at 12% 100%, color-mix(in oklab, var(--primary) 14%, transparent), transparent 70%),
+      radial-gradient(40% 30% at 96% 0%, color-mix(in oklab, var(--highlight) 8%, transparent), transparent 70%);
+    background-attachment: fixed;
     color: var(--color-foreground);
     font-family: var(--font-sans);
   }
@@ -112,7 +115,8 @@
   h2,
   h3 {
     font-family: var(--font-display);
-    letter-spacing: 0.01em;
+    font-weight: 700;
+    letter-spacing: -0.015em;
   }
 }
 
@@ -138,9 +142,21 @@
 
 @utility panel {
   background-color: var(--card);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-xl);
+  border: 1px solid color-mix(in oklab, var(--border) 70%, transparent);
+  border-radius: 1.75rem;
   box-shadow: var(--shadow-card);
+}
+
+/* Small rounded label, like the genre tags in the reference design. */
+@utility chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  border-radius: 9999px;
+  background-color: var(--muted);
+  padding: 0.35rem 0.9rem;
+  font-size: 0.8rem;
+  color: var(--muted-foreground);
 }
 
 /* ───────────── DMOJO ART cinematic layer ───────────── */
