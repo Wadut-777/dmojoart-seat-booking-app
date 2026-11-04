@@ -1,5 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 
+import { z } from "zod";
+
 import type { CategoryRow } from "@/server/halls.server";
 
 /** Public (no sign-in) reads used by the pre-booking and events pages. */
@@ -44,3 +46,23 @@ export const listPublicExecutives = createServerFn({ method: "GET" }).handler(as
   const { sql } = await import("@/server/db.server");
   return await sql<PublicExecutive[]>`SELECT id, name, city FROM executives WHERE is_active = 1 ORDER BY name`;
 });
+
+/**
+ * Seats left per seat category of one hall for one event. A category with no capacity limit is
+ * reported as null (unlimited). Pending bookings count while their hold (BOOKING_HOLD_MINUTES) lasts.
+ */
+export const getAvailability = createServerFn({ method: "GET" })
+  .validator((d: unknown) =>
+    z.object({ hallId: z.string().uuid(), eventId: z.string().uuid().optional().or(z.literal("")) }).parse(d),
+  )
+  .handler(async ({ data }): Promise<Record<string, number | null>> => {
+    const { sql } = await import("@/server/db.server");
+    const { seatsTaken, seatsLeft } = await import("@/server/inventory.server");
+    const cats = await sql<{ id: string; name: string; capacity: number }[]>`
+      SELECT id, name, capacity FROM hall_categories WHERE hall_id = ${data.hallId}`;
+    const out: Record<string, number | null> = {};
+    for (const c of cats) {
+      out[c.id] = Number(c.capacity) > 0 ? seatsLeft(Number(c.capacity), await seatsTaken({ sql }, data.hallId, c.name, data.eventId || null)) : null;
+    }
+    return out;
+  });

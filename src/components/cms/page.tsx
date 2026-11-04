@@ -2,7 +2,7 @@ import { useQuery, useQueryClient, type QueryClient } from "@tanstack/react-quer
 import { useState } from "react";
 
 import { EditorContext, type EditorApi } from "@/components/cms/context";
-import { collectionKey, EVENTS_KEY, SETTINGS_KEY } from "@/components/cms/data";
+import { ORIGIN_KEY, absoluteMedia, collectionKey, EVENTS_KEY, SETTINGS_KEY } from "@/components/cms/data";
 import { PageEditor, RenderBlock, type EditableBlock } from "@/components/cms/editor";
 import { needsFor } from "@/lib/cms-blocks";
 import { getCmsPage, getSiteSettings, listCollection, type CmsPage as CmsPageMeta } from "@/lib/cms.functions";
@@ -33,11 +33,12 @@ export async function loadCmsPage(queryClient: QueryClient, slug: string): Promi
 }
 
 /** <head> tags for a CMS page, from the editable page settings. */
-export function cmsHead(meta: CmsPageMeta | null | undefined, fallbackTitle: string, path: string) {
+export function cmsHead(meta: CmsPageMeta | null | undefined, fallbackTitle: string, path: string, origin = "") {
   const title = meta?.metaTitle || meta?.title || fallbackTitle;
   const description = meta?.metaDescription ?? "";
   const image = meta?.ogImage ?? "";
-  const imageUrl = image ? (/^https?:\/\//i.test(image) ? image : `/media/${image}`) : "";
+  const imageUrl = absoluteMedia(origin, image) ?? "";
+  const url = origin ? origin + path : path;
   return {
     meta: [
       { title },
@@ -45,10 +46,11 @@ export function cmsHead(meta: CmsPageMeta | null | undefined, fallbackTitle: str
       { property: "og:title", content: title },
       ...(description ? [{ property: "og:description", content: description }] : []),
       { property: "og:type", content: "website" },
+      { property: "og:url", content: url },
       ...(imageUrl ? [{ property: "og:image", content: imageUrl }] : []),
       { name: "twitter:card", content: imageUrl ? "summary_large_image" : "summary" },
     ],
-    links: [{ rel: "canonical", href: path }],
+    links: [{ rel: "canonical", href: url }],
   };
 }
 

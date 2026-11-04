@@ -21,7 +21,7 @@ import { useEffect, useRef, useState, type ReactNode } from "react";
 
 import { EnquiryForm } from "@/components/cms/forms";
 import { Cta, Img, Pic, SmartLink, T, useBlock, useEditor } from "@/components/cms/context";
-import { useCollection, usePublicEvents, useSiteSettings } from "@/components/cms/data";
+import { absoluteMedia, useCollection, useOrigin, usePublicEvents, useSiteSettings } from "@/components/cms/data";
 import { list, num, str } from "@/lib/cms-blocks";
 import type { CmsItem } from "@/lib/cms.functions";
 import { cn } from "@/lib/utils";
@@ -401,8 +401,29 @@ function Events() {
   );
   const items = limit > 0 ? filtered.slice(0, limit) : filtered;
   const href = str(data, "linkHref");
+  const origin = useOrigin();
+  // Event structured data for search engines (only events that have a date).
+  const jsonLd = items
+    .filter((e) => e.releaseDate)
+    .map((e) => ({
+      "@context": "https://schema.org",
+      "@type": "Event",
+      name: e.title,
+      startDate: e.releaseDate,
+      eventStatus: "https://schema.org/EventScheduled",
+      eventAttendanceMode: "https://schema.org/OfflineEventAttendanceMode",
+      location: { "@type": "Place", name: e.venue || e.city || "Venue to be announced", address: e.city || undefined },
+      image: absoluteMedia(origin, e.posterUrl?.replace(/^\/media\//, "")) ?? undefined,
+      description: e.synopsis || e.tagline || undefined,
+      offers: e.bookingOpen
+        ? { "@type": "Offer", url: `${origin}/prebook`, availability: "https://schema.org/InStock", priceCurrency: "INR" }
+        : undefined,
+    }));
   return (
     <Wrap className="bg-card/30">
+      {jsonLd.length > 0 && (
+        <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd).replace(/</g, "\\u003c") }} />
+      )}
       <div className="flex flex-wrap items-end justify-between gap-4">
         <Heading />
         {str(data, "linkText") && href && (

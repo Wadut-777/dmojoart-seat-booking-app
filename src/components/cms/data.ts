@@ -1,12 +1,13 @@
 import { useQuery } from "@tanstack/react-query";
 
-import { listCollection, getSiteSettings, type CmsItem } from "@/lib/cms.functions";
+import { getSiteOrigin, listCollection, getSiteSettings, type CmsItem } from "@/lib/cms.functions";
 import type { CollectionName, SiteSettings } from "@/lib/cms-schema";
 import { listPublicEvents, type PublicEvent } from "@/lib/events.functions";
 
 export const SETTINGS_KEY = ["site-settings"] as const;
 export const collectionKey = (name: CollectionName) => ["cms-collection", name] as const;
 export const EVENTS_KEY = ["public-events"] as const;
+export const ORIGIN_KEY = ["site-origin"] as const;
 
 const STALE = 60_000;
 
@@ -58,4 +59,17 @@ export function useCollection(name: CollectionName): CmsItem[] {
 export function usePublicEvents(): PublicEvent[] {
   const q = useQuery({ queryKey: EVENTS_KEY, queryFn: () => listPublicEvents(), staleTime: STALE });
   return q.data ?? [];
+}
+
+/** Public address of the site (prefetched by the root route, so it is available during server rendering). */
+export function useOrigin(): string {
+  const q = useQuery({ queryKey: ORIGIN_KEY, queryFn: () => getSiteOrigin(), staleTime: Infinity });
+  return q.data ?? "";
+}
+
+/** Absolute URL for a stored image path or URL. */
+export function absoluteMedia(origin: string, path: string | null | undefined): string | null {
+  if (!path) return null;
+  if (/^https?:\/\//i.test(path)) return path;
+  return `${origin}/media/${path.split("/").map(encodeURIComponent).join("/")}`;
 }
