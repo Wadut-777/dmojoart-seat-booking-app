@@ -6,7 +6,7 @@ import { CheckCircle2, CreditCard, Download, Ticket } from "lucide-react";
 import { toast } from "sonner";
 import { toPng } from "html-to-image";
 
-import { listBookableEvents, listPublicExecutives, listPublicHalls } from "@/lib/catalog.functions";
+import { getAvailability, listBookableEvents, listPublicExecutives, listPublicHalls } from "@/lib/catalog.functions";
 import { getPaymentStatus, payForBooking, startPayment } from "@/lib/payments.functions";
 import { createBooking } from "@/lib/bookings.functions";
 import titleAsset from "@/assets/premxl-title.asset.json";
@@ -96,6 +96,15 @@ function Prebook() {
     queryFn: () => listPublicHalls(),
   });
 
+  // Seats left per category for the chosen hall and event (null = no limit set).
+  const { data: availability, refetch: refetchAvailability } = useQuery({
+    queryKey: ["availability", hallId, eventId],
+    queryFn: () => getAvailability({ data: { hallId, eventId: eventId || "" } }),
+    enabled: !!hallId,
+    refetchInterval: 30_000,
+  });
+  const seatsAvailable = category ? (availability?.[category.id] ?? null) : null;
+
   const { data: executives } = useQuery({
     queryKey: ["executives-public"],
     queryFn: () => listPublicExecutives(),
@@ -143,11 +152,15 @@ function Prebook() {
           executiveId: source === "executive" ? executiveId : "",
         },
       });
-    } catch {
+    } catch (e) {
       setSaving(false);
-      toast.error("We couldn't save your booking. Please try again.");
+      const reason = e instanceof Error ? e.message : "";
+      // Capacity messages come from the server and are safe to show as they are.
+      toast.error(/^(Sold out|Only \d+)/.test(reason) ? reason : "We couldn't save your booking. Please try again.");
+      void refetchAvailability();
       return;
     }
+    void refetchAvailability();
     setSaving(false);
     setPending({
       id: data.id,
@@ -363,21 +376,33 @@ function Prebook() {
           <Field label="3. Choose seat category">
             {hall ? (
               <div className="grid gap-3 sm:grid-cols-3">
-                {hall.hall_categories.map((c) => (
-                  <button
-                    key={c.id}
-                    type="button"
-                    onClick={() => setCategory({ id: c.id, name: c.name, price: c.price })}
-                    className={`rounded-xl border p-4 text-left transition-colors ${
-                      category?.name === c.name
-                        ? "border-primary bg-accent/30"
-                        : "border-border hover:bg-muted/60"
-                    }`}
-                  >
-                    <p className="font-semibold">{c.name}</p>
-                    <p className="text-lg font-bold text-primary">₹{c.price}</p>
-                  </button>
-                ))}
+                {hall.hall_categories.map((c) => {
+                  const left = availability?.[c.id] ?? null;
+                  const soldOut = left !== null && left <= 0;
+                  return (
+                    <button
+                      key={c.id}
+                      type="button"
+                      disabled={soldOut}
+                      onClick={() => {
+                        setCategory({ id: c.id, name: c.name, price: c.price });
+                        if (left !== null) setSeats((n) => Math.max(1, Math.min(n, left)));
+                      }}
+                      className={`rounded-xl border p-4 text-left transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${
+                        category?.name === c.name
+                          ? "border-primary bg-accent/30"
+                          : "border-border hover:bg-muted/60"
+                      }`}
+                    >
+                      <p className="font-semibold">{c.name}</p>
+                      <p className="text-lg font-bold text-primary">₹{c.price}</p>
+                      {soldOut && <p className="mt-1 text-xs font-bold text-destructive">Sold out</p>}
+                      {left !== null && !soldOut && left <= 20 && (
+                        <p className="mt-1 text-xs font-bold text-muted-foreground">Only {left} left</p>
+                      )}
+                    </button>
+                  );
+                })}
               </div>
             ) : (
               <p className="text-sm text-muted-foreground">Select a cinema hall first.</p>
@@ -413,7 +438,7 @@ function Prebook() {
                   onChange={(e) => setSeats(Number(e.target.value))}
                   className="w-full rounded-lg border border-input bg-background px-4 py-3"
                 >
-                  {[1, 2, 3, 4, 5, 6, 8, 10].map((n) => (
+                  {[1, 2, 3, 4, 5, 6, 8, 10].filter((n) => seatsAvailable === null || n <= seatsAvailable).map((n) => (
                     <option key={n} value={n}>
                       {n}
                     </option>

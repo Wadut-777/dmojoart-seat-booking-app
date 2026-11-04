@@ -20,6 +20,14 @@ function parseJson<T>(text: string, fallback: T): T {
   }
 }
 
+/* ───────────── site address (canonical URLs, structured data) ───────────── */
+
+/** Public https address of the site, e.g. https://dmojoart.com (from PUBLIC_BASE_URL, else the request). */
+export const getSiteOrigin = createServerFn({ method: "GET" }).handler(async (): Promise<string> => {
+  const { siteOrigin } = await import("@/server/seo.server");
+  return siteOrigin();
+});
+
 /* ───────────── site settings ───────────── */
 
 /** Public: brand, theme, navigation, footer, social links, contact details, analytics id. */

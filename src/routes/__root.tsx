@@ -12,8 +12,8 @@ import type { ReactNode } from "react";
 import appCss from "../styles.css?url";
 import { SiteHeader, SiteFooter } from "@/components/site-chrome";
 import { PageBlocks } from "@/components/page-blocks";
-import { SETTINGS_KEY, mergeSettings, useSiteSettings } from "@/components/cms/data";
-import { getSiteSettings } from "@/lib/cms.functions";
+import { ORIGIN_KEY, SETTINGS_KEY, absoluteMedia, mergeSettings, useSiteSettings } from "@/components/cms/data";
+import { getSiteOrigin, getSiteSettings } from "@/lib/cms.functions";
 import { useRouterState } from "@tanstack/react-router";
 import { useEffect } from "react";
 import { Toaster } from "@/components/ui/sonner";
@@ -78,12 +78,30 @@ function ErrorComponent({ error, reset }: import("@tanstack/react-router").Error
 export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()({
   // Brand settings are editable in the admin; load them once so the first render (and <head>) already use them.
   loader: async ({ context }) => {
-    const raw = await context.queryClient.ensureQueryData({ queryKey: SETTINGS_KEY, queryFn: () => getSiteSettings() });
-    return { settings: mergeSettings(raw) };
+    const [raw, origin] = await Promise.all([
+      context.queryClient.ensureQueryData({ queryKey: SETTINGS_KEY, queryFn: () => getSiteSettings() }),
+      context.queryClient.ensureQueryData({ queryKey: ORIGIN_KEY, queryFn: () => getSiteOrigin() }),
+    ]);
+    return { settings: mergeSettings(raw), origin };
   },
   head: ({ loaderData }) => {
     const brand = loaderData?.settings.brand.name ?? "D Mojo Art";
     const token = loaderData?.settings.analytics.searchConsoleToken ?? "";
+    // Organization structured data, built from the editable brand/contact/social settings.
+    const origin = loaderData?.origin ?? "";
+    const st = loaderData?.settings;
+    const org = st
+      ? {
+          "@context": "https://schema.org",
+          "@type": "Organization",
+          name: st.brand.name,
+          url: origin || undefined,
+          logo: absoluteMedia(origin, st.brand.logo) ?? undefined,
+          email: st.contact.email || undefined,
+          telephone: st.contact.phone || undefined,
+          sameAs: st.social.map((x) => x.url).filter(Boolean),
+        }
+      : null;
     return {
       meta: [
         { charSet: "utf-8" },
@@ -106,6 +124,9 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
         },
         { rel: "icon", type: "image/png", href: "/favicon.png" },
       ],
+      scripts: org
+        ? [{ type: "application/ld+json", children: JSON.stringify(org).replace(/</g, "\\u003c") }]
+        : [],
     };
   },
   shellComponent: RootShell,
