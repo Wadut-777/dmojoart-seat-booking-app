@@ -6,7 +6,7 @@ import type { EnquiryKind } from "@/lib/cms-schema";
 import { cn } from "@/lib/utils";
 
 const field =
-  "w-full border border-input bg-background px-4 py-3 text-base outline-none transition-colors placeholder:text-muted-foreground/60 focus:border-primary";
+  "w-full rounded-2xl border border-input bg-card px-5 py-3.5 text-base outline-none transition-colors placeholder:text-muted-foreground/60 focus:border-primary";
 
 type Extra = { key: string; label: string; placeholder?: string };
 
@@ -91,10 +91,10 @@ export function EnquiryForm({ kind, submitText = "Send enquiry" }: { kind: strin
 
   if (done) {
     return (
-      <div role="status" className="border border-primary/50 p-8">
-        <p className="font-display text-2xl uppercase">Thank you</p>
+      <div role="status" className="rounded-3xl border border-primary/50 bg-card p-8">
+        <p className="font-display text-2xl">Thank you</p>
         <p className="mt-2 text-muted-foreground">We have received your enquiry and will get back to you soon.</p>
-        <button type="button" onClick={() => setDone(false)} className="mt-5 text-sm font-bold uppercase tracking-[0.2em] text-primary">
+        <button type="button" onClick={() => setDone(false)} className="mt-5 text-sm font-semibold text-primary">
           Send another
         </button>
       </div>
@@ -150,7 +150,7 @@ export function EnquiryForm({ kind, submitText = "Send enquiry" }: { kind: strin
           <input tabIndex={-1} autoComplete="off" value={values["website"] ?? ""} onChange={(e) => set("website", e.target.value)} />
         </label>
       </div>
-      <button type="submit" disabled={busy} className="gold-surface px-8 py-4 text-sm font-bold uppercase tracking-[0.15em] disabled:opacity-60">
+      <button type="submit" disabled={busy} className="gold-surface rounded-full px-9 py-4 text-sm font-medium uppercase tracking-wide disabled:opacity-60">
         {busy ? "Sending…" : submitText}
       </button>
     </form>
@@ -187,9 +187,9 @@ export function NewsletterForm({ className }: { className?: string }) {
         value={email}
         onChange={(e) => setEmail(e.target.value)}
         placeholder="Your email"
-        className="min-w-0 flex-1 border border-input bg-background px-4 py-3 outline-none focus:border-primary"
+        className="min-w-0 flex-1 rounded-l-full border border-input bg-background px-5 py-3 outline-none focus:border-primary"
       />
-      <button type="submit" disabled={busy} className="gold-surface px-5 text-xs font-bold uppercase tracking-[0.15em] disabled:opacity-60">
+      <button type="submit" disabled={busy} className="gold-surface rounded-r-full px-6 text-sm font-medium uppercase tracking-wide disabled:opacity-60">
         {busy ? "…" : "Join"}
       </button>
     </form>

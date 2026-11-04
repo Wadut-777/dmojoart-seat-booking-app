@@ -17,10 +17,11 @@ const settings = {
     logoText: "D MOJO ART",
   },
   theme: {
-    accent: "#e5b84b",
-    accentSoft: "#f3d98a",
-    background: "#0b0b0d",
-    surface: "#16161a",
+    accent: "#92b0f4",
+    accentSoft: "#a9c2f9",
+    highlight: "#f26b3a",
+    background: "#14161b",
+    surface: "#1e2128",
   },
   nav: [
     { label: "Home", href: "/", enabled: true },

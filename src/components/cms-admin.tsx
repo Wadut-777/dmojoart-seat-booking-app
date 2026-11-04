@@ -169,8 +169,9 @@ function SettingsEditor() {
         <div className="grid grid-cols-2 gap-4">
           {(
             [
-              ["accent", "Accent"],
+              ["accent", "Accent (buttons, links)"],
               ["accentSoft", "Accent (light end)"],
+              ["highlight", "Highlight (dots, small accents)"],
               ["background", "Page background"],
               ["surface", "Cards / surfaces"],
             ] as const

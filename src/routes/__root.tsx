@@ -120,7 +120,7 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
         { rel: "preconnect", href: "https://fonts.gstatic.com", crossOrigin: "anonymous" },
         {
           rel: "stylesheet",
-          href: "https://fonts.googleapis.com/css2?family=Anton&family=Manrope:wght@400;600;800&display=swap",
+          href: "https://fonts.googleapis.com/css2?family=Syne:wght@500;600;700;800&family=Manrope:wght@400;500;600;700&display=swap",
         },
         { rel: "icon", type: "image/png", href: "/favicon.png" },
       ],
@@ -166,6 +166,7 @@ function ThemeAndAnalytics() {
   const css = [
     HEX.test(theme.accent) && `--primary:${theme.accent};--ring:${theme.accent};--gold:${theme.accent};--sidebar-primary:${theme.accent};`,
     HEX.test(theme.accent) && HEX.test(theme.accentSoft) && `--gradient-gold:linear-gradient(100deg,${theme.accentSoft},${theme.accent});`,
+    HEX.test(theme.highlight) && `--highlight:${theme.highlight};`,
     HEX.test(theme.background) && `--background:${theme.background};`,
     HEX.test(theme.surface) && `--card:${theme.surface};--popover:${theme.surface};`,
   ]

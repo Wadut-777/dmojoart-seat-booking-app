@@ -161,7 +161,7 @@ export type SettingKey = (typeof SETTING_KEYS)[number];
 export type NavItem = { label: string; href: string; enabled: boolean };
 export type SiteSettings = {
   brand: { name: string; tagline: string; logo: string; logoText: string };
-  theme: { accent: string; accentSoft: string; background: string; surface: string };
+  theme: { accent: string; accentSoft: string; highlight: string; background: string; surface: string };
   nav: NavItem[];
   footer: { intro: string; copyright: string; newsletterTitle: string; newsletterText: string };
   social: { label: string; url: string }[];
