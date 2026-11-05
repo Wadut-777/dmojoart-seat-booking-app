@@ -9,7 +9,10 @@ export default defineConfig(({ mode }) => {
   // Make .env values (DATABASE_URL, STORAGE_DIR, …) visible to server code in `vite dev`.
   // In production, `npm start` loads .env via `node --env-file`.
   for (const [key, value] of Object.entries(loadEnv(mode, process.cwd(), ""))) {
-    process.env[key] ??= value;
+    // STORAGE_DIR from .env wins in dev, so a stale value left in the shell or system environment
+    // cannot silently point uploads (and /media) at a different folder.
+    if (key === "STORAGE_DIR" && mode !== "production") process.env[key] = value;
+    else process.env[key] ??= value;
   }
 
   return {

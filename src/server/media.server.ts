@@ -3,8 +3,18 @@ import { randomUUID } from "node:crypto";
 import { dirname, extname, join, normalize, resolve, sep } from "node:path";
 
 /** Uploaded images (event posters, page-builder blocks) live on local disk. */
+let announced = false;
+
 export function storageRoot(): string {
-  return resolve(process.env["STORAGE_DIR"] ?? "./storage/event-media");
+  // Tolerate quotes, stray spaces and "~" in .env (e.g. STORAGE_DIR="D:\\dmojo\\media" or ~/dmojo/media).
+  let raw = (process.env["STORAGE_DIR"] ?? "").trim().replace(/^(['"])(.*)\1$/, "$2").trim();
+  if (raw.startsWith("~")) raw = join(process.env["HOME"] ?? process.env["USERPROFILE"] ?? "", raw.slice(1));
+  const root = resolve(raw || "./storage/event-media");
+  if (!announced) {
+    announced = true;
+    console.log(`[media] storing and serving uploads from ${root}${raw ? "" : " (STORAGE_DIR is not set; using the default)"}`);
+  }
+  return root;
 }
 
 export const MAX_UPLOAD_BYTES = 10 * 1024 * 1024;
@@ -51,6 +61,7 @@ export async function readUpload(relative: string): Promise<{ body: Buffer; type
     if (!(await stat(full)).isFile()) return null;
     return { body: await readFile(full), type };
   } catch {
+    console.warn(`[media] file not found: ${full} (STORAGE_DIR resolves to ${storageRoot()})`);
     return null;
   }
 }
