@@ -5,14 +5,15 @@ export const Route = createFileRoute("/sitemap.xml")({
   server: {
     handlers: {
       GET: async ({ request }) => {
-        const { sql } = await import("@/server/db.server");
         const { siteOriginFor, xmlEscape } = await import("@/server/seo.server");
         const origin = siteOriginFor(request.headers);
 
-        const pages = await sql<{ slug: string; updated_at: string }[]>`
-          SELECT slug, updated_at FROM cms_pages WHERE is_published = 1 ORDER BY slug`;
+        const { loadPageNodes, pathOf } = await import("@/server/pages.server");
+        const nodes = await loadPageNodes();
         const urls = [
-          ...pages.map((p) => ({ loc: p.slug === "home" ? "/" : `/${p.slug}`, lastmod: p.updated_at.slice(0, 10) })),
+          ...nodes
+            .filter((n) => n.isPublished)
+            .map((n) => ({ loc: pathOf(nodes, n.slug) ?? `/${n.slug}`, lastmod: n.updatedAt.slice(0, 10) })),
           { loc: "/events", lastmod: undefined },
           { loc: "/productions", lastmod: undefined },
         ];

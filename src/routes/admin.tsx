@@ -2,7 +2,7 @@ import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
-import { Download } from "lucide-react";
+import { Download, FileText } from "lucide-react";
 import { toPng } from "html-to-image";
 
 import {
@@ -21,6 +21,10 @@ import { uploadMedia } from "@/lib/media";
 import { SESSION_KEY, useSession } from "@/hooks/use-roles";
 import { StaffManager, ROLE_LABELS } from "@/components/staff-manager";
 import { CmsAdmin } from "@/components/cms-admin";
+import { TaxAdmin } from "@/components/tax-admin";
+import { PaymentDialog } from "@/components/payment-dialog";
+import { hasExtras, type PriceBreakup } from "@/lib/pricing";
+import type { AdminBooking } from "@/lib/admin.functions";
 
 export const Route = createFileRoute("/admin")({
   head: () => ({
@@ -50,6 +54,7 @@ type BookingRow = {
   num_seats: number;
   unit_price: number;
   total_price: number;
+  breakup: PriceBreakup | null;
   created_at: string;
   booking_source: string;
   payment_status: string;
@@ -82,11 +87,12 @@ function Admin() {
   const canEvents = isAdmin || roles.includes("editor") || roles.includes("event_manager");
   const canBookings = isAdmin || roles.includes("booking_manager") || roles.includes("executive");
   const isStaff = roles.length > 0;
-  const [tab, setTab] = useState<"bookings" | "events" | "halls" | "executives" | "users" | "website">("bookings");
+  const [tab, setTab] = useState<"bookings" | "events" | "halls" | "executives" | "users" | "website" | "pricing">("bookings");
   const tabs = [
     ...(canBookings ? [{ id: "bookings" as const, label: "Bookings" }] : []),
     ...(canEvents ? [{ id: "events" as const, label: "Movies & events" }] : []),
     ...(canEvents ? [{ id: "website" as const, label: "Website content" }] : []),
+    ...(isAdmin ? [{ id: "pricing" as const, label: "Pricing & GST" }] : []),
     ...(isAdmin ? [{ id: "halls" as const, label: "Cinema halls" }] : []),
     ...(isAdmin ? [{ id: "executives" as const, label: "Executives" }] : []),
     ...(isAdmin ? [{ id: "users" as const, label: "Users & roles" }] : []),
@@ -94,6 +100,8 @@ function Admin() {
   const activeTab = tabs.some((t) => t.id === tab) ? tab : (tabs[0]?.id ?? tab);
   const [ticketBooking, setTicketBooking] = useState<BookingRow | null>(null);
   const ticketRef = useRef<HTMLDivElement>(null);
+  const [reconcile, setReconcile] = useState<AdminBooking | null>(null);
+  const canReconcile = isAdmin || roles.includes("booking_manager");
 
   async function downloadTicket() {
     if (!ticketRef.current || !ticketBooking) return;
@@ -439,6 +447,11 @@ function Admin() {
       Category: b.seat_category,
       Seats: b.num_seats,
       "Unit Price": b.unit_price,
+      "Ticket value (before GST)": b.breakup ? b.breakup.taxableTicket : b.total_price,
+      "GST on tickets": b.breakup?.ticketGst ?? 0,
+      "Service charge": b.breakup?.serviceCharge ?? 0,
+      "GST on service charge": b.breakup?.serviceChargeGst ?? 0,
+      "Round off": b.breakup?.roundOff ?? 0,
       "Total Paid": b.total_price,
       "Booked By": b.booking_source === "executive" ? (b.executives?.name ?? "Executive") : "Self",
       "Payment Status": b.payment_status,
@@ -492,6 +505,8 @@ function Admin() {
       </div>
 
       {activeTab === "website" && canEvents && <CmsAdmin roles={roles} />}
+
+      {activeTab === "pricing" && isAdmin && <TaxAdmin />}
 
       {activeTab === "users" && isAdmin && <StaffManager executives={(executives.data ?? []).map((x) => ({ id: x.id, name: x.name }))} />}
 
@@ -947,14 +962,22 @@ function Admin() {
                   <td className="py-3 pr-4">
                     {b.num_seats} × {b.seat_category}
                   </td>
-                  <td className="py-3 pr-4 font-bold">₹{b.total_price}</td>
+                  <td className="py-3 pr-4 font-bold">
+                    ₹{b.total_price}
+                    {b.breakup && hasExtras(b.breakup) && (
+                      <span className="block text-[11px] font-normal text-muted-foreground">
+                        incl. GST ₹{(b.breakup.ticketGst + b.breakup.serviceChargeGst).toFixed(2)}
+                        {b.breakup.serviceCharge > 0 && ` · fee ₹${b.breakup.serviceCharge.toFixed(2)}`}
+                      </span>
+                    )}
+                  </td>
                   <td className="py-3 pr-4">
                     <span
                       className={
                         b.payment_status === "paid" ? "font-bold text-primary" : "text-muted-foreground"
                       }
                     >
-                      {b.payment_status === "paid" ? "Paid" : "Pending"}
+                      {b.payment_status.charAt(0).toUpperCase() + b.payment_status.slice(1)}
                     </span>
                     {b.ticket_code && (
                       <>
@@ -964,12 +987,35 @@ function Admin() {
                     )}
                   </td>
                   <td className="py-3 pr-4">
-                    {isAdmin && <button
-                  onClick={() => deleteRow("bookings", b.id, `booking ${b.booking_ref}`)}
-                  className="rounded-full border border-destructive px-4 py-1.5 text-xs font-bold text-destructive"
-                >
-                  Delete
-                </button>}
+                    <div className="flex flex-wrap gap-2">
+                      {b.payment_status === "paid" && (
+                        <a
+                          href={`/api/invoice/${b.id}`}
+                          download
+                          title="Download tax invoice (PDF)"
+                          className="inline-flex items-center gap-1 rounded-full border border-border px-3 py-1.5 text-xs font-bold hover:bg-muted"
+                        >
+                          <FileText className="size-3.5" /> Invoice
+                        </a>
+                      )}
+                      {canReconcile && b.payment_status !== "refunded" && (
+                        <button
+                          type="button"
+                          onClick={() => setReconcile(b)}
+                          className="rounded-full border border-primary px-3 py-1.5 text-xs font-bold text-primary hover:bg-primary/10"
+                        >
+                          {b.payment_status === "paid" ? "Payment…" : "Reconcile"}
+                        </button>
+                      )}
+                      {isAdmin && (
+                        <button
+                          onClick={() => deleteRow("bookings", b.id, `booking ${b.booking_ref}`)}
+                          className="rounded-full border border-destructive px-4 py-1.5 text-xs font-bold text-destructive"
+                        >
+                          Delete
+                        </button>
+                      )}
+                    </div>
                   </td>
                 </tr>
               ))}
@@ -979,6 +1025,8 @@ function Admin() {
         </div>
       </section>
       )}
+
+      {reconcile && <PaymentDialog booking={reconcile} onClose={() => setReconcile(null)} />}
 
       {ticketBooking && (
         <div className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-background/85 p-5 backdrop-blur">
@@ -1020,7 +1068,7 @@ function Admin() {
                   <TicketCell label="AMOUNT PAID" value={`₹${ticketBooking.total_price}`} />
                   <TicketCell
                     label="STATUS"
-                    value={ticketBooking.payment_status === "paid" ? "PAID" : "PENDING"}
+                    value={ticketBooking.payment_status.toUpperCase()}
                   />
                 </div>
                 <div className="rounded-xl border border-dashed border-primary/60 p-4 text-center">
@@ -1043,9 +1091,18 @@ function Admin() {
               >
                 <Download className="size-4" /> Download ticket
               </button>
+              {ticketBooking.payment_status === "paid" && (
+                <a
+                  href={`/api/invoice/${ticketBooking.id}`}
+                  download
+                  className="inline-flex items-center justify-center gap-2 rounded-full border border-primary px-6 py-3 font-bold text-primary hover:bg-primary/10"
+                >
+                  <FileText className="size-4" /> Download tax invoice
+                </a>
+              )}
               <button
                 onClick={() => setTicketBooking(null)}
-                className="rounded-full border border-border px-6 py-3 font-semibold"
+                className="rounded-full border border-border px-6 py-3 font-semibold sm:col-span-2"
               >
                 Close
               </button>

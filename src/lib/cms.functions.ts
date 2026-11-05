@@ -73,6 +73,11 @@ export type CmsPage = {
   metaDescription: string | null;
   ogImage: string | null;
   isPublished: boolean;
+  parentSlug: string | null;
+  position: number;
+  isCustom: boolean;
+  /** Public URL path, e.g. "/music/live-shows". */
+  path: string;
 };
 
 type PageRow = {
@@ -84,32 +89,54 @@ type PageRow = {
   is_published: boolean;
 };
 
-const toPage = (r: PageRow): CmsPage => ({
-  slug: r.slug,
-  title: r.title,
-  metaTitle: r.meta_title,
-  metaDescription: r.meta_description,
-  ogImage: r.og_image,
-  isPublished: r.is_published,
-});
+type FullRow = PageRow & { parent_slug: string | null; position: number; is_custom: number };
+
+async function loadPages(onlyPublished: boolean): Promise<CmsPage[]> {
+  const { sql } = await import("@/server/db.server");
+  const { loadPageNodes, pathOf } = await import("@/server/pages.server");
+  const nodes = await loadPageNodes();
+  const rows = await sql<FullRow[]>`
+    SELECT slug, title, meta_title, meta_description, og_image, is_published, parent_slug, position, is_custom
+    FROM cms_pages ORDER BY position, title`;
+  return rows
+    .filter((r) => !onlyPublished || r.is_published)
+    .map((r) => ({
+      slug: r.slug,
+      title: r.title,
+      metaTitle: r.meta_title,
+      metaDescription: r.meta_description,
+      ogImage: r.og_image,
+      isPublished: !!r.is_published,
+      parentSlug: r.parent_slug,
+      position: Number(r.position),
+      isCustom: !!r.is_custom,
+      path: pathOf(nodes, r.slug) ?? `/${r.slug}`,
+    }));
+}
 
 export const getCmsPage = createServerFn({ method: "GET" })
   .validator((d: unknown) => z.object({ slug: z.string().min(1).max(100) }).parse(d))
   .handler(async ({ data }): Promise<CmsPage | null> => {
-    const { sql } = await import("@/server/db.server");
-    const [row] = await sql<PageRow[]>`
-      SELECT slug, title, meta_title, meta_description, og_image, is_published
-      FROM cms_pages WHERE slug = ${data.slug} AND is_published = 1`;
-    return row ? toPage(row) : null;
+    const pages = await loadPages(true);
+    return pages.find((p) => p.slug === data.slug) ?? null;
+  });
+
+/** Finds the page for a URL like "music/live-shows" (used by the catch-all route). Null when there is no such page. */
+export const resolveCmsPath = createServerFn({ method: "GET" })
+  .validator((d: unknown) => z.object({ path: z.string().max(400) }).parse(d))
+  .handler(async ({ data }): Promise<CmsPage | null> => {
+    const segments = data.path.split("/").filter(Boolean);
+    if (segments.length === 0 || segments.length > 3) return null;
+    const pages = await loadPages(true);
+    const page = pages.find((p) => p.slug === segments[segments.length - 1]);
+    if (!page || page.slug === "home") return null;
+    return page.path === "/" + segments.join("/") ? page : null;
   });
 
 export const adminListCmsPages = createServerFn({ method: "GET" }).handler(async (): Promise<CmsPage[]> => {
   const { requireUser } = await import("@/server/auth.server");
-  const { sql } = await import("@/server/db.server");
   await requireUser(CONTENT_ROLES);
-  const rows = await sql<PageRow[]>`
-    SELECT slug, title, meta_title, meta_description, og_image, is_published FROM cms_pages ORDER BY slug`;
-  return rows.map(toPage);
+  return loadPages(false);
 });
 
 export const saveCmsPage = createServerFn({ method: "POST" })
@@ -131,13 +158,148 @@ export const saveCmsPage = createServerFn({ method: "POST" })
     const { audit } = await import("@/server/audit.server");
     const user = await requireUser(CONTENT_ROLES);
     await exec`
-      INSERT INTO cms_pages (slug, title, meta_title, meta_description, og_image, is_published)
-      VALUES (${data.slug}, ${data.title}, ${data.metaTitle || null}, ${data.metaDescription || null},
-              ${data.ogImage || null}, ${data.isPublished ? 1 : 0})
-      ON DUPLICATE KEY UPDATE title = VALUES(title), meta_title = VALUES(meta_title),
-        meta_description = VALUES(meta_description), og_image = VALUES(og_image),
-        is_published = VALUES(is_published), updated_at = UTC_TIMESTAMP(3)`;
+      UPDATE cms_pages SET title = ${data.title}, meta_title = ${data.metaTitle || null},
+        meta_description = ${data.metaDescription || null}, og_image = ${data.ogImage || null},
+        is_published = ${data.isPublished ? 1 : 0}, updated_at = UTC_TIMESTAMP(3)
+      WHERE slug = ${data.slug}`;
     await audit(user, "update", "page", data.slug);
+    return { ok: true };
+  });
+
+/** Creates a new page with a starter layout (banner, text, call to action), published straight away. */
+export const createCmsPage = createServerFn({ method: "POST" })
+  .validator((d: unknown) =>
+    z
+      .object({
+        title: z.string().trim().min(1).max(200),
+        slug: z.string().regex(/^[a-z0-9]+(-[a-z0-9]+)*$/, "Use lowercase letters, numbers and hyphens only.").max(60),
+        parentSlug: z.string().regex(/^[a-z0-9-]{1,100}$/).nullable(),
+        addToMenu: z.boolean(),
+      })
+      .parse(d),
+  )
+  .handler(async ({ data }): Promise<{ path: string }> => {
+    const { requireUser } = await import("@/server/auth.server");
+    const { transaction } = await import("@/server/db.server");
+    const { audit } = await import("@/server/audit.server");
+    const { loadPageNodes, pathOf, depthOf, RESERVED_SLUGS, MAX_DEPTH } = await import("@/server/pages.server");
+    const { defaultBlockData } = await import("@/lib/cms-blocks");
+    const { randomUUID } = await import("node:crypto");
+    const user = await requireUser(CONTENT_ROLES);
+
+    const nodes = await loadPageNodes();
+    if (RESERVED_SLUGS.has(data.slug)) throw new Error("That address is used by the website itself. Please choose another.");
+    if (nodes.some((n) => n.slug === data.slug)) throw new Error("A page with that address already exists.");
+    if (data.parentSlug) {
+      if (!nodes.some((n) => n.slug === data.parentSlug)) throw new Error("The parent page was not found.");
+      if (depthOf(nodes, data.parentSlug) >= MAX_DEPTH) throw new Error(`Pages can be nested ${MAX_DEPTH} levels deep at most.`);
+    }
+    const siblings = nodes.filter((n) => n.parentSlug === data.parentSlug);
+    const position = siblings.reduce((m, n) => Math.max(m, n.position), 0) + 1;
+    const path = (data.parentSlug ? (pathOf(nodes, data.parentSlug) ?? "") : "") + "/" + data.slug;
+
+    await transaction(async (tx) => {
+      await tx.exec`
+        INSERT INTO cms_pages (slug, title, parent_slug, position, is_custom, is_published)
+        VALUES (${data.slug}, ${data.title}, ${data.parentSlug}, ${position}, 1, 1)`;
+      const layout: [string, Record<string, unknown>][] = [
+        ["pagehero", { ...defaultBlockData("pagehero"), title: data.title, subtitle: "Add a short introduction to this page." }],
+        ["richtext", { ...defaultBlockData("richtext"), eyebrow: "About this page", title: "Write your content here", body: "Click any text on the page to edit it, and use the section menu to add galleries, events, forms and more." }],
+        ["cta", defaultBlockData("cta")],
+      ];
+      for (const [i, [type, block]] of layout.entries()) {
+        const json = JSON.stringify(block);
+        await tx.exec`
+          INSERT INTO page_blocks (id, page, position, block_type, data, published_data, published_position, published_at)
+          VALUES (${randomUUID()}, ${"cms:" + data.slug}, ${i}, ${type}, ${json}, ${json}, ${i}, UTC_TIMESTAMP(3))`;
+      }
+      if (data.addToMenu) {
+        const [row] = await tx.sql<{ setting_value: string }[]>`SELECT setting_value FROM site_settings WHERE setting_key = 'nav'`;
+        let nav: unknown[] = [];
+        try {
+          const parsed: unknown = row ? JSON.parse(row.setting_value) : [];
+          if (Array.isArray(parsed)) nav = parsed;
+        } catch {
+          /* keep empty */
+        }
+        nav.push({ label: data.title, href: path, enabled: true });
+        await tx.exec`
+          INSERT INTO site_settings (setting_key, setting_value) VALUES ('nav', ${JSON.stringify(nav)})
+          ON DUPLICATE KEY UPDATE setting_value = VALUES(setting_value), updated_at = UTC_TIMESTAMP(3)`;
+      }
+    });
+    await audit(user, "create", "page", data.slug, { path });
+    return { path };
+  });
+
+/** Sets the order of sibling pages (all pages with the same parent). `order` lists their slugs, first to last. */
+export const reorderCmsPages = createServerFn({ method: "POST" })
+  .validator((d: unknown) => z.object({ order: z.array(z.string().regex(/^[a-z0-9-]{1,100}$/)).min(1).max(200) }).parse(d))
+  .handler(async ({ data }) => {
+    const { requireUser } = await import("@/server/auth.server");
+    const { transaction } = await import("@/server/db.server");
+    const { audit } = await import("@/server/audit.server");
+    const user = await requireUser(CONTENT_ROLES);
+    await transaction(async (tx) => {
+      for (const [i, slug] of data.order.entries()) {
+        await tx.exec`UPDATE cms_pages SET position = ${i}, updated_at = UTC_TIMESTAMP(3) WHERE slug = ${slug}`;
+      }
+    });
+    await audit(user, "reorder", "page", data.order.join(","));
+    return { ok: true };
+  });
+
+/** Moves a page you created under another page (or back to the top level). Built-in pages keep their addresses. */
+export const moveCmsPage = createServerFn({ method: "POST" })
+  .validator((d: unknown) =>
+    z.object({ slug: z.string().regex(/^[a-z0-9-]{1,100}$/), parentSlug: z.string().regex(/^[a-z0-9-]{1,100}$/).nullable() }).parse(d),
+  )
+  .handler(async ({ data }): Promise<{ path: string }> => {
+    const { requireUser } = await import("@/server/auth.server");
+    const { exec } = await import("@/server/db.server");
+    const { audit } = await import("@/server/audit.server");
+    const { loadPageNodes, pathOf, depthOf, descendantsOf, MAX_DEPTH } = await import("@/server/pages.server");
+    const user = await requireUser(CONTENT_ROLES);
+
+    const nodes = await loadPageNodes();
+    const page = nodes.find((n) => n.slug === data.slug);
+    if (!page) throw new Error("Page not found.");
+    if (!page.isCustom) throw new Error("Built-in pages keep their address. You can still change their order.");
+    if (data.parentSlug) {
+      if (data.parentSlug === data.slug || descendantsOf(nodes, data.slug).has(data.parentSlug)) {
+        throw new Error("A page cannot be placed under itself or one of its own sub-pages.");
+      }
+      if (!nodes.some((n) => n.slug === data.parentSlug)) throw new Error("The parent page was not found.");
+      // Levels below this page + the new parent's depth must stay within the limit.
+      const below = Math.max(0, ...[...descendantsOf(nodes, data.slug)].map((s) => depthOf(nodes, s) - depthOf(nodes, data.slug)));
+      if (depthOf(nodes, data.parentSlug) + 1 + below > MAX_DEPTH) throw new Error(`Pages can be nested ${MAX_DEPTH} levels deep at most.`);
+    }
+    const position = nodes.filter((n) => n.parentSlug === data.parentSlug).reduce((m, n) => Math.max(m, n.position), 0) + 1;
+    await exec`UPDATE cms_pages SET parent_slug = ${data.parentSlug}, position = ${position}, updated_at = UTC_TIMESTAMP(3) WHERE slug = ${data.slug}`;
+    const after = await loadPageNodes();
+    await audit(user, "move", "page", data.slug, { parent: data.parentSlug });
+    return { path: pathOf(after, data.slug) ?? `/${data.slug}` };
+  });
+
+/** Deletes a page you created (not a built-in one). The page must have no sub-pages. */
+export const deleteCmsPage = createServerFn({ method: "POST" })
+  .validator((d: unknown) => z.object({ slug: z.string().regex(/^[a-z0-9-]{1,100}$/) }).parse(d))
+  .handler(async ({ data }) => {
+    const { requireUser } = await import("@/server/auth.server");
+    const { transaction } = await import("@/server/db.server");
+    const { audit } = await import("@/server/audit.server");
+    const { loadPageNodes } = await import("@/server/pages.server");
+    const user = await requireUser(CONTENT_ROLES);
+    const nodes = await loadPageNodes();
+    const page = nodes.find((n) => n.slug === data.slug);
+    if (!page) throw new Error("Page not found.");
+    if (!page.isCustom) throw new Error("Built-in pages cannot be deleted. Untick “Page settings are live” to hide its SEO settings instead.");
+    if (nodes.some((n) => n.parentSlug === data.slug)) throw new Error("Move or delete this page's sub-pages first.");
+    await transaction(async (tx) => {
+      await tx.exec`DELETE FROM page_blocks WHERE page = ${"cms:" + data.slug}`;
+      await tx.exec`DELETE FROM cms_pages WHERE slug = ${data.slug}`;
+    });
+    await audit(user, "delete", "page", data.slug);
     return { ok: true };
   });
 

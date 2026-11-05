@@ -91,8 +91,12 @@ export function CmsPage({ slug }: { slug: string }) {
     },
   };
 
+  // Pages that do not start with a banner would slide under the floating header.
+  const startsWithBanner = ["hero", "pagehero"].includes(blocks[0]?.block_type ?? "hero");
+
   return (
     <EditorContext.Provider value={api}>
+      {!startsWithBanner && <div className="h-24" aria-hidden="true" />}
       {editing ? (
         // Queries for the editor's draft are keyed separately, so the editor can invalidate by prefix.
         <PageEditor page={page} blocks={blocks} setBlocks={setBlocks} mode={mode} setMode={setMode}>

@@ -80,3 +80,12 @@ Run the SQL in `db/migrations/` through phpMyAdmin if you can't run `npm run db:
 - `src/server/*.server.ts` — database pool, auth/sessions, file storage (server only)
 - `src/lib/*.functions.ts` — server functions (all data access + role checks)
 - Roles: `admin` (all) · `editor` (events, page content) · `booking_manager` (all bookings) · `executive` (own bookings)
+
+## GST, service charge and tax invoices (stage 6)
+
+- **Settings:** Admin → *Pricing & GST* (admin only). GST rate, inclusive/exclusive prices, service charge (percent or flat per ticket), CGST+SGST or IGST display, and the seller details printed on invoices. Defaults are off, so nothing changes until you save settings.
+- **Pricing:** computed on the server in `src/lib/pricing.ts` when a booking is created. `bookings.total_price` is the whole-rupee amount charged and sent to the payment gateway; the build-up (ticket value, GST, service charge, round-off) is stored in `bookings.price_breakup` (JSON). Bookings made earlier have no breakup and keep their total.
+- **Invoice:** `GET /api/invoice/<booking id>` returns a PDF for a paid booking (customer: "Download tax invoice" next to the ticket; staff: *Invoice* in the bookings table). The invoice is numbered per financial year (`INV/2026-27/000001`) the first time it is requested, and the seller details are saved with it. It shows Booking ID, Merchant Transaction ID and ticket code.
+- **Reconciliation:** Admin / booking manager → bookings → *Reconcile*. Check with the gateway, or set the status by hand: pending/failed → paid (needs a payment reference), pending → failed, paid → refunded (cancels the booking and frees the seats). Every change is written to the activity log.
+- **Database:** migration `007_gst_invoices.sql` adds `bookings.price_breakup`, `invoices` and `invoice_counter`. Run `npm run db:migrate` before deploying this code.
+- A refund does not yet produce a credit note; invoices already issued are not altered.

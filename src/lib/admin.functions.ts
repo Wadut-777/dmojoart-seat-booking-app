@@ -1,6 +1,8 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 
+import type { PriceBreakup } from "@/lib/pricing";
+
 /**
  * Dashboard data and mutations. Access rules (previously Supabase row-level-security policies):
  *   halls, hall categories, executives .... admin
@@ -244,6 +246,8 @@ export type AdminBooking = {
   num_seats: number;
   unit_price: number;
   total_price: number;
+  /** GST / service charge build-up; null for bookings made before GST was itemised. */
+  breakup: PriceBreakup | null;
   created_at: string;
   booking_source: string;
   executive_id: string | null;
@@ -271,14 +275,15 @@ export const adminListBookings = createServerFn({ method: "GET" }).handler(async
     myExecutiveId = me.id;
   }
 
-  type Flat = Omit<AdminBooking, "halls" | "events" | "executives"> & {
+  type Flat = Omit<AdminBooking, "halls" | "events" | "executives" | "breakup"> & {
+    price_breakup: string | null;
     hall_name: string | null;
     event_title: string | null;
     exec_name: string | null;
   };
   const rows = await sql<Flat[]>`
     SELECT b.id, b.booking_ref, b.customer_name, b.email, b.phone, b.city, b.seat_category, b.num_seats,
-           b.unit_price, b.total_price, b.created_at, b.booking_source, b.executive_id, b.payment_status,
+           b.unit_price, b.total_price, b.price_breakup, b.created_at, b.booking_source, b.executive_id, b.payment_status,
            b.payment_ref,
            (SELECT pa.merch_txn_id FROM payment_attempts pa WHERE pa.booking_id = b.id ORDER BY pa.created_at DESC LIMIT 1) AS merchant_transaction_id,
            b.paid_at, b.ticket_code,
@@ -290,13 +295,126 @@ export const adminListBookings = createServerFn({ method: "GET" }).handler(async
     WHERE (${myExecutiveId} IS NULL OR b.executive_id = ${myExecutiveId})
     ORDER BY b.created_at DESC`;
 
-  return rows.map(({ hall_name, event_title, exec_name, ...b }) => ({
+  const parse = (json: string | null): PriceBreakup | null => {
+    try {
+      return json ? (JSON.parse(json) as PriceBreakup) : null;
+    } catch {
+      return null;
+    }
+  };
+  return rows.map(({ hall_name, event_title, exec_name, price_breakup, ...b }) => ({
     ...b,
+    breakup: parse(price_breakup),
     halls: hall_name === null ? null : { name: hall_name },
     events: event_title === null ? null : { title: event_title },
     executives: exec_name === null ? null : { name: exec_name },
   }));
 });
+
+/* ───────────── payment reconciliation ───────────── */
+
+const PAYMENT_ADMINS = ["admin", "booking_manager"] as const;
+
+/**
+ * Reconciliation: change a booking's payment status by hand (e.g. the customer paid but the gateway callback never
+ * arrived, or money was received offline). Allowed moves: pending/failed -> paid, pending -> failed, paid -> refunded.
+ * Every change is written to the activity log with who, what and why.
+ */
+export const adminSetPaymentStatus = createServerFn({ method: "POST" })
+  .validator((d: unknown) =>
+    z
+      .object({
+        bookingId: z.string().uuid(),
+        status: z.enum(["paid", "failed", "refunded"]),
+        /** Gateway/bank/UTR reference that proves the payment. Required when marking paid. */
+        reference: text(100),
+        note: text(300),
+      })
+      .parse(d),
+  )
+  .handler(async ({ data }) => {
+    const { requireUser } = await import("@/server/auth.server");
+    const { transaction, dbTime } = await import("@/server/db.server");
+    const { audit } = await import("@/server/audit.server");
+    const { randomBytes } = await import("node:crypto");
+    const user = await requireUser([...PAYMENT_ADMINS]);
+
+    if (data.status === "paid" && data.reference.length < 4) {
+      throw new Error("Enter the payment reference (gateway transaction ID, UTR or receipt number) so this can be reconciled later.");
+    }
+    if (data.status !== "paid" && data.note.length < 3) throw new Error("Please add a short reason.");
+
+    const result = await transaction(
+      async (tx) => {
+        const [b] = await tx.sql<{ id: string; booking_ref: string; payment_status: string }[]>`
+          SELECT id, booking_ref, payment_status FROM bookings WHERE id = ${data.bookingId} FOR UPDATE`;
+        if (!b) throw new Error("Booking not found.");
+        const from = b.payment_status;
+        const allowed =
+          (data.status === "paid" && (from === "pending" || from === "failed")) ||
+          (data.status === "failed" && from === "pending") ||
+          (data.status === "refunded" && from === "paid");
+        if (!allowed) throw new Error(`A booking that is "${from}" cannot be changed to "${data.status}".`);
+
+        if (data.status === "paid") {
+          const ticketCode = `TKT-${b.booking_ref}-${randomBytes(3).toString("hex").toUpperCase().slice(0, 5)}`;
+          await tx.exec`
+            UPDATE bookings
+            SET payment_status = 'paid', payment_provider = 'manual', payment_ref = ${data.reference},
+                paid_at = ${dbTime()}, ticket_code = COALESCE(ticket_code, ${ticketCode}), status = 'confirmed'
+            WHERE id = ${b.id}`;
+          // Keep the booking tied to its gateway attempt: mark the latest unpaid attempt as reconciled.
+          await tx.exec`
+            UPDATE payment_attempts
+            SET status = 'paid', atom_txn_id = COALESCE(atom_txn_id, ${data.reference}),
+                description = ${`Manually reconciled by ${user.email}${data.note ? `: ${data.note}` : ""}`.slice(0, 500)},
+                completed_at = UTC_TIMESTAMP(3)
+            WHERE booking_id = ${b.id} AND status <> 'paid' ORDER BY created_at DESC LIMIT 1`;
+        } else if (data.status === "failed") {
+          await tx.exec`UPDATE bookings SET payment_status = 'failed' WHERE id = ${b.id}`;
+        } else {
+          await tx.exec`UPDATE bookings SET payment_status = 'refunded', status = 'cancelled' WHERE id = ${b.id}`;
+        }
+        return { from, ref: b.booking_ref };
+      },
+      { lock: `dmojo_pay_${data.bookingId}` },
+    );
+    await audit(user, "payment_status", "booking", data.bookingId, {
+      booking: result.ref,
+      from: result.from,
+      to: data.status,
+      reference: data.reference || undefined,
+      note: data.note || undefined,
+    });
+    return { ok: true };
+  });
+
+/** Asks the payment gateway about a booking's open attempts and updates the booking if it was actually paid. */
+export const adminSyncPayment = createServerFn({ method: "POST" })
+  .validator((d: unknown) => z.object({ bookingId: z.string().uuid() }).parse(d))
+  .handler(async ({ data }): Promise<{ status: string; message: string }> => {
+    const { requireUser } = await import("@/server/auth.server");
+    const { sql } = await import("@/server/db.server");
+    const atom = await import("@/server/atom.server");
+    const { audit } = await import("@/server/audit.server");
+    const user = await requireUser([...PAYMENT_ADMINS]);
+    if (atom.paymentProvider() !== "atom") throw new Error("The payment gateway is not enabled on this server, so there is nothing to check.");
+
+    const attempts = await sql<{ merch_txn_id: string }[]>`
+      SELECT merch_txn_id FROM payment_attempts WHERE booking_id = ${data.bookingId} AND status <> 'paid'
+      ORDER BY created_at DESC LIMIT 5`;
+    if (!attempts.length) throw new Error("This booking has no gateway payment attempt to check. Use “Mark as paid” if you received the money another way.");
+    for (const a of attempts) await atom.syncAttempt(a.merch_txn_id);
+    const [b] = await sql<{ payment_status: string }[]>`SELECT payment_status FROM bookings WHERE id = ${data.bookingId}`;
+    await audit(user, "payment_sync", "booking", data.bookingId, { result: b?.payment_status });
+    return {
+      status: b?.payment_status ?? "unknown",
+      message:
+        b?.payment_status === "paid"
+          ? "The gateway confirms this payment. The booking is now paid and the ticket is issued."
+          : "The gateway has no successful payment for this booking.",
+    };
+  });
 
 /* ───────────── deletes ───────────── */
 

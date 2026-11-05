@@ -11,7 +11,6 @@ import type { ReactNode } from "react";
 
 import appCss from "../styles.css?url";
 import { SiteHeader, SiteFooter } from "@/components/site-chrome";
-import { PageBlocks } from "@/components/page-blocks";
 import { ORIGIN_KEY, SETTINGS_KEY, absoluteMedia, mergeSettings, useSiteSettings } from "@/components/cms/data";
 import { getSiteOrigin, getSiteSettings } from "@/lib/cms.functions";
 import { useRouterState } from "@tanstack/react-router";
@@ -149,13 +148,6 @@ function RootShell({ children }: { children: ReactNode }) {
   );
 }
 
-// Pages whose body is still the older page builder. "/" and "/about" now use the new CMS sections.
-const BUILDER_PAGES: Record<string, string> = {
-  "/productions": "productions",
-  "/events": "events",
-  "/prebook": "prebook",
-};
-
 /** Pages that start with a full-bleed banner, so the fixed header floats over them. Others get top padding. */
 const FULL_BLEED = new Set(["/", "/about", "/music", "/film", "/music-production", "/event-management", "/comedy", "/portfolio", "/contact"]);
 const HEX = /^#[0-9a-fA-F]{6}$/;
@@ -194,8 +186,9 @@ function ThemeAndAnalytics() {
 function RootComponent() {
   const { queryClient } = Route.useRouteContext();
   const pathname = useRouterState({ select: (s) => s.location.pathname });
-  const builderPage = BUILDER_PAGES[pathname];
-  const fullBleed = FULL_BLEED.has(pathname);
+  // Pages created in the admin ("Pages & SEO") are rendered by the catch-all route and start with a banner.
+  const isCustomPage = useRouterState({ select: (s) => s.matches.some((m) => m.routeId === "/$") });
+  const fullBleed = FULL_BLEED.has(pathname) || isCustomPage;
 
   return (
     <QueryClientProvider client={queryClient}>
@@ -205,7 +198,6 @@ function RootComponent() {
         <main className={fullBleed ? "flex-1" : "flex-1 pt-20"}>
           {/* Required: nested routes render here. */}
           <Outlet />
-          {builderPage && <PageBlocks key={builderPage} page={builderPage} />}
         </main>
         <SiteFooter />
       </div>

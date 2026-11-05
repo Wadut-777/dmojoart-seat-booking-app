@@ -2,9 +2,13 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { z } from "zod";
-import { CheckCircle2, CreditCard, Download, Ticket } from "lucide-react";
+import { CheckCircle2, CreditCard, Download, FileText, Ticket } from "lucide-react";
 import { toast } from "sonner";
 import { toPng } from "html-to-image";
+
+import { PriceLines } from "@/components/price-breakup";
+import { computeBreakup, DEFAULT_TAX, type PriceBreakup } from "@/lib/pricing";
+import { getTaxSettings } from "@/lib/tax.functions";
 
 import { getAvailability, listBookableEvents, listPublicExecutives, listPublicHalls } from "@/lib/catalog.functions";
 import { getPaymentStatus, payForBooking, startPayment } from "@/lib/payments.functions";
@@ -79,6 +83,7 @@ function Prebook() {
     seats: number;
     customer: string;
     eventTitle: string;
+    breakup: PriceBreakup | null;
   } | null>(null);
   const [ticket, setTicket] = useState<{ code: string; paidAt: string; merchantTransactionId: string | null } | null>(null);
 
@@ -120,7 +125,10 @@ function Prebook() {
   );
 
   const hall = halls?.find((h) => h.id === hallId) ?? null;
-  const total = useMemo(() => (category ? category.price * seats : 0), [category, seats]);
+  const { data: tax } = useQuery({ queryKey: ["tax-settings"], queryFn: () => getTaxSettings(), staleTime: 60_000 });
+  // Preview only: the server recalculates the price when the booking is created.
+  const breakup = useMemo(() => (category ? computeBreakup(category.price, seats, tax ?? DEFAULT_TAX) : null), [category, seats, tax]);
+  const total = breakup?.total ?? 0;
 
   async function confirm() {
     const parsed = formSchema.safeParse(form);
@@ -173,6 +181,7 @@ function Prebook() {
       seats,
       customer: parsed.data.name,
       eventTitle: events?.find((e) => e.id === eventId)?.title ?? "PremXL",
+      breakup: data.breakup,
     });
   }
 
@@ -198,6 +207,7 @@ function Prebook() {
           seats: s.seats,
           customer: s.customer,
           eventTitle: s.eventTitle,
+          breakup: s.breakup,
         });
         if (s.paymentStatus === "paid" && s.ticketCode) {
           setTicket({ code: s.ticketCode, paidAt: s.paidAt ?? new Date().toISOString(), merchantTransactionId: s.merchantTransactionId });
@@ -454,6 +464,7 @@ function Prebook() {
             <p className="text-xs opacity-70">
               {category ? `${seats} × ${category.name} @ ₹${category.price}` : "Select a category"}
             </p>
+            <PriceLines breakup={breakup} className="mt-4 border-t border-primary-foreground/20 pt-3" />
           </div>
 
           <button
@@ -476,6 +487,7 @@ function Prebook() {
             <p className="mt-2 text-sm text-muted-foreground">
               {pending.seats} × {pending.category} · {pending.hallName}, {pending.city}
             </p>
+            <PriceLines breakup={pending.breakup} className="mt-4 rounded-2xl border border-border bg-muted/40 p-3" />
             {payError && (
               <p className="mt-4 rounded-2xl border border-destructive/60 bg-destructive/10 p-3 text-xs text-destructive">
                 Last payment attempt did not go through: {payError}
@@ -535,6 +547,18 @@ function Prebook() {
                   <TicketCell label="CATEGORY" value={pending.category} />
                   <TicketCell label="SEATS" value={String(pending.seats)} />
                   <TicketCell label="AMOUNT PAID" value={`₹${pending.total}`} />
+                  {pending.breakup && (pending.breakup.ticketGst > 0 || pending.breakup.serviceCharge > 0) && (
+                    <TicketCell
+                      label="INCLUDES"
+                      value={[
+                        pending.breakup.ticketGst + pending.breakup.serviceChargeGst > 0 &&
+                          `GST ₹${(pending.breakup.ticketGst + pending.breakup.serviceChargeGst).toFixed(2)}`,
+                        pending.breakup.serviceCharge > 0 && `Service charge ₹${pending.breakup.serviceCharge.toFixed(2)}`,
+                      ]
+                        .filter(Boolean)
+                        .join(" · ")}
+                    />
+                  )}
                   <TicketCell label="STATUS" value="PAID" />
                 </div>
                 <div className="rounded-xl border border-dashed border-primary/60 p-4 text-center">
@@ -555,12 +579,19 @@ function Prebook() {
               >
                 <Download className="size-4" /> Download ticket
               </button>
+              <a
+                href={`/api/invoice/${pending.id}`}
+                download
+                className="inline-flex items-center justify-center gap-2 rounded-full border border-primary px-6 py-3 font-bold text-primary hover:bg-primary/10"
+              >
+                <FileText className="size-4" /> Download tax invoice
+              </a>
               <button
                 onClick={() => {
                   setTicket(null);
                   setPending(null);
                 }}
-                className="rounded-full border border-border px-6 py-3 font-semibold"
+                className="rounded-full border border-border px-6 py-3 font-semibold sm:col-span-2"
               >
                 Done
               </button>
