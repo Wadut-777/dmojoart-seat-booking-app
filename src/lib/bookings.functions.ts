@@ -44,7 +44,13 @@ export const createBooking = createServerFn({ method: "POST" })
     }
 
     const unitPrice = Number(category.price);
-    const total = unitPrice * data.seats;
+    // Server-side price build-up (ticket value, GST, service charge, round-off) from the admin's tax settings.
+    // With GST and service charge off (the default) this equals unitPrice × seats, exactly as before.
+    const { loadTaxSettings } = await import("@/server/tax.server");
+    const { computeBreakup } = await import("@/lib/pricing");
+    const breakup = computeBreakup(unitPrice, data.seats, await loadTaxSettings());
+    const total = breakup.total;
+    const breakupJson = JSON.stringify(breakup);
     const id = uuid();
 
     // MySQL has no sequences: take the next number from the one-row counter, inside the same
@@ -74,10 +80,10 @@ export const createBooking = createServerFn({ method: "POST" })
         await tx.exec`
           INSERT INTO bookings (
             id, booking_ref, customer_name, email, phone, city, event_id, hall_id, seat_category, unit_price,
-            num_seats, total_price, booking_source, executive_id
+            num_seats, total_price, price_breakup, booking_source, executive_id
           ) VALUES (
             ${id}, ${ref}, ${data.name}, ${data.email || null}, ${data.phone}, ${hall.city}, ${data.eventId || null},
-            ${hall.id}, ${category.name}, ${unitPrice}, ${data.seats}, ${total}, ${data.source}, ${executiveId}
+            ${hall.id}, ${category.name}, ${unitPrice}, ${data.seats}, ${total}, ${breakupJson}, ${data.source}, ${executiveId}
           )`;
         return ref;
       },
@@ -88,6 +94,7 @@ export const createBooking = createServerFn({ method: "POST" })
       id,
       bookingRef,
       total,
+      breakup,
       hallName: hall.name,
       city: hall.city,
       showTime: hall.show_time ?? "",

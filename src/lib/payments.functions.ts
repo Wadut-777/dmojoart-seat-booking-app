@@ -1,6 +1,8 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 
+import type { PriceBreakup } from "@/lib/pricing";
+
 /**
  * Payments via NTT DATA Payment Services (Atom). See src/server/atom.server.ts.
  *
@@ -96,6 +98,8 @@ export type PaymentSummary = {
   customer: string;
   eventTitle: string;
   failureReason: string | null;
+  /** How the total was built (GST, service charge). Null for bookings made before GST was itemised. */
+  breakup: PriceBreakup | null;
 };
 
 export const getPaymentStatus = createServerFn({ method: "POST" })
@@ -110,6 +114,7 @@ export const getPaymentStatus = createServerFn({ method: "POST" })
           id: string;
           booking_ref: string;
           total_price: number;
+          price_breakup: string | null;
           payment_status: string;
           ticket_code: string | null;
           paid_at: string | null;
@@ -122,7 +127,7 @@ export const getPaymentStatus = createServerFn({ method: "POST" })
           event_title: string | null;
         }[]
       >`
-        SELECT b.id, b.booking_ref, b.total_price, b.payment_status, b.ticket_code, b.paid_at, b.seat_category,
+        SELECT b.id, b.booking_ref, b.total_price, b.price_breakup, b.payment_status, b.ticket_code, b.paid_at, b.seat_category,
                b.num_seats, b.customer_name, b.city, h.name AS hall_name, h.show_time, e.title AS event_title
         FROM bookings b
         LEFT JOIN halls h ON h.id = b.hall_id
@@ -169,8 +174,18 @@ export const getPaymentStatus = createServerFn({ method: "POST" })
       customer: row.customer_name,
       eventTitle: row.event_title ?? "PremXL",
       failureReason: row.payment_status === "paid" ? null : (last?.description ?? null),
+      breakup: parseBreakup(row.price_breakup),
     };
   });
+
+function parseBreakup(json: string | null): PriceBreakup | null {
+  if (!json) return null;
+  try {
+    return JSON.parse(json) as PriceBreakup;
+  } catch {
+    return null;
+  }
+}
 
 function makeTicketCode(bookingRef: string) {
   const random = Math.random().toString(36).slice(2, 7).toUpperCase();
