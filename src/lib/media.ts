@@ -3,7 +3,9 @@
 export function mediaUrl(path?: string | null): string | null {
   if (!path) return null;
   if (/^https?:\/\//i.test(path)) return path;
-  return `/media/${path.split("/").map(encodeURIComponent).join("/")}`;
+  // Already a site-relative URL (e.g. event posters come back as "/media/posters/…"): use as is.
+  if (path.startsWith("/")) return path;
+  return `/media/${path.replace(/\\/g, "/").split("/").map(encodeURIComponent).join("/")}`;
 }
 
 export async function uploadMedia(file: File, folder: "posters" | "blocks"): Promise<string> {

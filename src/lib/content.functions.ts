@@ -3,28 +3,7 @@ import { z } from "zod";
 
 const EDITORS = ["admin", "editor"] as const;
 
-/* ───────────── inline-editable text ───────────── */
-
-export const getSiteContent = createServerFn({ method: "GET" }).handler(async (): Promise<Record<string, string>> => {
-  const { sql } = await import("@/server/db.server");
-  const rows = await sql<{ content_key: string; content_value: string }[]>`
-    SELECT content_key, content_value FROM site_content`;
-  return Object.fromEntries(rows.map((r) => [r.content_key, r.content_value]));
-});
-
-export const saveSiteContent = createServerFn({ method: "POST" })
-  .validator((d: unknown) => z.object({ key: z.string().min(1).max(200), value: z.string().max(20_000) }).parse(d))
-  .handler(async ({ data }) => {
-    const { requireUser } = await import("@/server/auth.server");
-    const { exec } = await import("@/server/db.server");
-    await requireUser(EDITORS);
-    await exec`
-      INSERT INTO site_content (content_key, content_value) VALUES (${data.key}, ${data.value})
-      ON DUPLICATE KEY UPDATE content_value = VALUES(content_value), updated_at = UTC_TIMESTAMP(3)`;
-    return { ok: true };
-  });
-
-/* ───────────── page builder ───────────── */
+/* ───────────── page sections (used by the CMS page editor) ───────────── */
 
 export type PageBlockRow = {
   id: string;

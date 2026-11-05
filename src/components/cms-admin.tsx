@@ -10,8 +10,12 @@ import {
   adminListCmsPages,
   adminListCollection,
   adminListEnquiries,
+  createCmsPage,
+  deleteCmsPage,
   deleteCollectionItem,
   getSiteSettings,
+  moveCmsPage,
+  reorderCmsPages,
   reorderCollection,
   saveCmsPage,
   saveCollectionItem,
@@ -510,25 +514,228 @@ function PagesEditor() {
     );
   }
 
+  const pages = q.data ?? [];
+  const refresh = () => qc.invalidateQueries({ queryKey: ["admin-cms-pages"] });
+  const rows = flattenTree(pages);
+
+  async function run(fn: () => Promise<unknown>, ok?: string) {
+    try {
+      await fn();
+      await refresh();
+      if (ok) toast.success(ok);
+    } catch (e) {
+      toast.error(readableError(e));
+    }
+  }
+
+  // Swap a page with the previous/next page that has the same parent.
+  function shift(page: CmsPage, dir: -1 | 1) {
+    const siblings = pages.filter((x) => x.parentSlug === page.parentSlug);
+    const i = siblings.findIndex((x) => x.slug === page.slug);
+    const j = i + dir;
+    if (i < 0 || j < 0 || j >= siblings.length) return;
+    const order = siblings.map((x) => x.slug);
+    [order[i], order[j]] = [order[j]!, order[i]!];
+    void run(() => reorderCmsPages({ data: { order } }));
+  }
+
+  // Pages a page may be moved under: not itself, not its own sub-pages, and not too deep.
+  function parentChoices(page: CmsPage) {
+    const blocked = new Set([page.slug, ...descendantSlugs(pages, page.slug)]);
+    return rows.filter(({ page: c, depth }) => !blocked.has(c.slug) && depth < 3);
+  }
+
   return (
-    <ul className="divide-y divide-border border border-border">
-      {(q.data ?? []).map((p) => (
-        <li key={p.slug} className="flex flex-wrap items-center justify-between gap-3 p-3">
-          <div>
-            <p className="font-semibold">{p.title}</p>
-            <p className="text-xs text-muted-foreground">{p.slug === "home" ? "/" : `/${p.slug}`}</p>
-          </div>
-          <div className="flex gap-2">
-            <a href={p.slug === "home" ? "/" : `/${p.slug}`} className={btn}>
-              Edit page
-            </a>
-            <button type="button" className={btn} onClick={() => setOpen(p)}>
-              SEO settings
-            </button>
-          </div>
-        </li>
-      ))}
-    </ul>
+    <div className="space-y-6">
+      <NewPageForm pages={pages} rows={rows} onCreated={refresh} />
+      <ul className="divide-y divide-border rounded-2xl border border-border">
+        {rows.map(({ page: p, depth }) => {
+          const siblings = pages.filter((x) => x.parentSlug === p.parentSlug);
+          const idx = siblings.findIndex((x) => x.slug === p.slug);
+          return (
+            <li key={p.slug} className="flex flex-wrap items-center justify-between gap-3 p-3" style={{ paddingLeft: `${0.75 + depth * 1.75}rem` }}>
+              <div>
+                <p className="font-semibold">
+                  {p.title}
+                  {p.isCustom && <span className="ml-2 rounded-full bg-primary/15 px-2 py-0.5 text-[0.65rem] font-bold text-primary">New</span>}
+                </p>
+                <p className="text-xs text-muted-foreground">{p.path}</p>
+              </div>
+              <div className="flex flex-wrap items-center gap-2">
+                <button type="button" className={btn} aria-label={`Move ${p.title} up`} disabled={idx <= 0} onClick={() => shift(p, -1)}>
+                  <ArrowUp className="size-3.5" />
+                </button>
+                <button type="button" className={btn} aria-label={`Move ${p.title} down`} disabled={idx >= siblings.length - 1} onClick={() => shift(p, 1)}>
+                  <ArrowDown className="size-3.5" />
+                </button>
+                {p.isCustom && (
+                  <select
+                    aria-label={`Place ${p.title} under`}
+                    className={input + " w-auto"}
+                    value={p.parentSlug ?? ""}
+                    onChange={(e) =>
+                      void run(() => moveCmsPage({ data: { slug: p.slug, parentSlug: e.target.value || null } }), "Page moved. Its address has changed.")
+                    }
+                  >
+                    <option value="">Top level</option>
+                    {parentChoices(p).map(({ page: c, depth: d }) => (
+                      <option key={c.slug} value={c.slug}>
+                        {"— ".repeat(d)}Under: {c.title}
+                      </option>
+                    ))}
+                  </select>
+                )}
+                <a href={p.path} className={btn}>
+                  Edit page
+                </a>
+                <button type="button" className={btn} onClick={() => setOpen(p)}>
+                  SEO settings
+                </button>
+                {p.isCustom && (
+                  <button
+                    type="button"
+                    className={btn}
+                    aria-label={`Delete ${p.title}`}
+                    onClick={() => {
+                      if (window.confirm(`Delete the page “${p.title}” and all its sections? This cannot be undone.`)) {
+                        void run(() => deleteCmsPage({ data: { slug: p.slug } }), "Page deleted.");
+                      }
+                    }}
+                  >
+                    <Trash2 className="size-3.5" />
+                  </button>
+                )}
+              </div>
+            </li>
+          );
+        })}
+      </ul>
+      <p className="text-xs text-muted-foreground">
+        Use the arrows to change the order among pages at the same level. Pages you add can be placed under any other page; built-in pages keep their
+        addresses. The menu at the top of the website is edited under Site settings.
+      </p>
+    </div>
+  );
+}
+
+type Row = { page: CmsPage; depth: number };
+
+/** Depth-first list: each page followed by its sub-pages, in the saved order. */
+function flattenTree(pages: CmsPage[]): Row[] {
+  const out: Row[] = [];
+  const known = new Set(pages.map((p) => p.slug));
+  const walk = (parent: string | null, depth: number) => {
+    for (const p of pages.filter((x) => (x.parentSlug && known.has(x.parentSlug) ? x.parentSlug : null) === parent)) {
+      out.push({ page: p, depth });
+      walk(p.slug, depth + 1);
+    }
+  };
+  walk(null, 0);
+  return out;
+}
+
+function descendantSlugs(pages: CmsPage[], slug: string): string[] {
+  const kids = pages.filter((p) => p.parentSlug === slug).map((p) => p.slug);
+  return kids.flatMap((k) => [k, ...descendantSlugs(pages, k)]);
+}
+
+const slugify = (v: string) =>
+  v
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 60);
+
+function NewPageForm({ pages, rows, onCreated }: { pages: CmsPage[]; rows: Row[]; onCreated: () => Promise<unknown> }) {
+  const [open, setOpen] = useState(false);
+  const [title, setTitle] = useState("");
+  const [slug, setSlug] = useState("");
+  const [slugTouched, setSlugTouched] = useState(false);
+  const [parent, setParent] = useState("");
+  const [menu, setMenu] = useState(true);
+  const [busy, setBusy] = useState(false);
+
+  if (!open) {
+    return (
+      <button type="button" className={gold + " inline-flex items-center gap-2"} onClick={() => setOpen(true)}>
+        <Plus className="size-4" /> Add new page
+      </button>
+    );
+  }
+
+  const parentPage = pages.find((p) => p.slug === parent);
+  const preview = `${parentPage && parentPage.path !== "/" ? parentPage.path : ""}/${slug || "page-address"}`;
+
+  async function create(e: React.FormEvent) {
+    e.preventDefault();
+    setBusy(true);
+    try {
+      const res = await createCmsPage({ data: { title, slug, parentSlug: parent || null, addToMenu: menu } });
+      await onCreated();
+      toast.success("Page created. Opening it so you can add content.");
+      window.location.assign(res.path);
+    } catch (err) {
+      toast.error(readableError(err));
+      setBusy(false);
+    }
+  }
+
+  return (
+    <form onSubmit={create} className="max-w-xl space-y-4 rounded-2xl border border-border p-5">
+      <h3 className="text-lg">Add new page</h3>
+      <Labeled label="Page name">
+        <input
+          className={input}
+          required
+          maxLength={200}
+          value={title}
+          onChange={(e) => {
+            setTitle(e.target.value);
+            if (!slugTouched) setSlug(slugify(e.target.value));
+          }}
+        />
+      </Labeled>
+      <Labeled label="Web address (lowercase letters, numbers, hyphens)">
+        <input
+          className={input}
+          required
+          pattern="[a-z0-9]+(-[a-z0-9]+)*"
+          maxLength={60}
+          value={slug}
+          onChange={(e) => {
+            setSlugTouched(true);
+            setSlug(slugify(e.target.value));
+          }}
+        />
+      </Labeled>
+      <Labeled label="Place under">
+        <select className={input} value={parent} onChange={(e) => setParent(e.target.value)}>
+          <option value="">Top level</option>
+          {rows
+            .filter((r) => r.depth < 2)
+            .map(({ page: p, depth }) => (
+              <option key={p.slug} value={p.slug}>
+                {"— ".repeat(depth)}
+                {p.title}
+              </option>
+            ))}
+        </select>
+      </Labeled>
+      <p className="text-xs text-muted-foreground">
+        Address: <span className="text-foreground">{preview}</span>
+      </p>
+      <label className="flex items-center gap-2 text-sm">
+        <input type="checkbox" checked={menu} onChange={(e) => setMenu(e.target.checked)} /> Add to the main menu
+      </label>
+      <div className="flex gap-2">
+        <button type="submit" disabled={busy || !title.trim() || !slug} className={gold}>
+          {busy ? "Creating…" : "Create page"}
+        </button>
+        <button type="button" className={btn} onClick={() => setOpen(false)}>
+          Cancel
+        </button>
+      </div>
+    </form>
   );
 }
 
