@@ -89,3 +89,11 @@ Run the SQL in `db/migrations/` through phpMyAdmin if you can't run `npm run db:
 - **Reconciliation:** Admin / booking manager → bookings → *Reconcile*. Check with the gateway, or set the status by hand: pending/failed → paid (needs a payment reference), pending → failed, paid → refunded (cancels the booking and frees the seats). Every change is written to the activity log.
 - **Database:** migration `007_gst_invoices.sql` adds `bookings.price_breakup`, `invoices` and `invoice_counter`. Run `npm run db:migrate` before deploying this code.
 - A refund does not yet produce a credit note; invoices already issued are not altered.
+
+## Show times per cinema hall (stage 8)
+
+- **Data:** table `hall_shows` (hall + movie/event + date + time, India time). Migration `008_hall_shows.sql` also adds `bookings.show_id` and `bookings.show_label` (a text snapshot such as "Fri, 2 Oct 2026 · 7:00 PM", so tickets and invoices stay correct if a show is later removed). Run `npm run db:migrate`.
+- **Admin:** *Cinema halls → Show times* (pick the movie/event, a date or date range, and one or more times) and *Movies & events → Halls & show times* (pick the halls, dates and times). Both edit the same list. Shows can be hidden or deleted; a show with bookings can only be hidden, and its date/time is locked.
+- **Booking flow:** if a movie/event has shows, the booking page offers only the halls it is listed on, then a date and time. Each show has its own seat capacity per category. The chosen show is stored on the booking and printed on the e-ticket, tax invoice, admin bookings table and Excel export. Past shows disappear automatically.
+- **Unchanged for existing data:** movies/events with no shows behave exactly as before (any hall, the hall's default show-time text).
+- Event cards link to `/prebook?event=<id>` so the booking page opens on that movie/event. `/events` lists upcoming shows under each cinema hall.

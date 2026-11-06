@@ -256,6 +256,8 @@ export type AdminBooking = {
   merchant_transaction_id: string | null;
   paid_at: string | null;
   ticket_code: string | null;
+  /** Date and time of the show this booking is for, e.g. "Fri, 2 Oct 2026 · 7:00 PM". */
+  show_label: string | null;
   halls: { name: string } | null;
   events: { title: string } | null;
   executives: { name: string } | null;
@@ -283,7 +285,7 @@ export const adminListBookings = createServerFn({ method: "GET" }).handler(async
   };
   const rows = await sql<Flat[]>`
     SELECT b.id, b.booking_ref, b.customer_name, b.email, b.phone, b.city, b.seat_category, b.num_seats,
-           b.unit_price, b.total_price, b.price_breakup, b.created_at, b.booking_source, b.executive_id, b.payment_status,
+           b.unit_price, b.total_price, b.price_breakup, b.show_label, b.created_at, b.booking_source, b.executive_id, b.payment_status,
            b.payment_ref,
            (SELECT pa.merch_txn_id FROM payment_attempts pa WHERE pa.booking_id = b.id ORDER BY pa.created_at DESC LIMIT 1) AS merchant_transaction_id,
            b.paid_at, b.ticket_code,

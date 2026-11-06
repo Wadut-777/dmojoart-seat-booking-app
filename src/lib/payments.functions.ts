@@ -128,7 +128,7 @@ export const getPaymentStatus = createServerFn({ method: "POST" })
         }[]
       >`
         SELECT b.id, b.booking_ref, b.total_price, b.price_breakup, b.payment_status, b.ticket_code, b.paid_at, b.seat_category,
-               b.num_seats, b.customer_name, b.city, h.name AS hall_name, h.show_time, e.title AS event_title
+               b.num_seats, b.customer_name, b.city, h.name AS hall_name, COALESCE(b.show_label, h.show_time) AS show_time, e.title AS event_title
         FROM bookings b
         LEFT JOIN halls h ON h.id = b.hall_id
         LEFT JOIN events e ON e.id = b.event_id

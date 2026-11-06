@@ -41,7 +41,7 @@ async function loadBooking(bookingId: string): Promise<BookingRow | null> {
   const [row] = await sql<BookingRow[]>`
     SELECT b.id, b.booking_ref, b.customer_name, b.email, b.phone, b.city, b.seat_category, b.unit_price, b.num_seats,
            b.total_price, b.price_breakup, b.payment_status, b.payment_provider, b.payment_ref, b.paid_at, b.ticket_code,
-           h.name AS hall_name, h.show_time, e.title AS event_title
+           h.name AS hall_name, COALESCE(b.show_label, h.show_time) AS show_time, e.title AS event_title
     FROM bookings b
     LEFT JOIN halls h ON h.id = b.hall_id
     LEFT JOIN events e ON e.id = b.event_id

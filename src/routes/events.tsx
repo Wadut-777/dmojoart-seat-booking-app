@@ -4,6 +4,8 @@ import { MapPin, Play } from "lucide-react";
 
 import { listPublicHalls } from "@/lib/catalog.functions";
 import { listPublicEvents } from "@/lib/events.functions";
+import { listPublicShows } from "@/lib/shows.functions";
+import { time12 } from "@/lib/shows";
 
 export const Route = createFileRoute("/events")({
   head: () => ({
@@ -26,6 +28,8 @@ export const Route = createFileRoute("/events")({
 });
 
 function Events() {
+  const { data: showData } = useQuery({ queryKey: ["public-shows", "all"], queryFn: () => listPublicShows({ data: { eventId: "" } }) });
+  const allShows = showData?.shows ?? [];
   const { data: shows } = useQuery({
     queryKey: ["public-events"],
     queryFn: () => listPublicEvents(),
@@ -78,12 +82,12 @@ function Events() {
                     </a>
                   )}
                   {s.bookingOpen && (
-                    <Link
-                      to="/prebook"
+                    <a
+                      href={`/prebook?event=${s.id}`}
                       className="gold-surface rounded-full px-4 py-2 text-sm font-bold hover:scale-105"
                     >
                       Pre-book
-                    </Link>
+                    </a>
                   )}
                 </div>
               </div>
@@ -103,8 +107,29 @@ function Events() {
             </p>
             <h2 className="mt-2 text-2xl">{h.name}</h2>
             <p className="mt-1 text-sm text-muted-foreground">
-              {h.address || "Address to be confirmed"} · Show time {h.show_time || "to be confirmed"}
+              {h.address || "Address to be confirmed"}
+              {!allShows.some((x) => x.hallId === h.id) && ` · Show time ${h.show_time || "to be confirmed"}`}
             </p>
+            {allShows.some((x) => x.hallId === h.id) && (
+              <ul className="mt-3 space-y-2 text-sm">
+                {Array.from(new Set(allShows.filter((x) => x.hallId === h.id).map((x) => x.eventId))).map((eid) => {
+                  const mine = allShows.filter((x) => x.hallId === h.id && x.eventId === eid);
+                  return (
+                    <li key={eid}>
+                      <span className="font-semibold">{mine[0]?.eventTitle}</span>
+                      <span className="mt-1 flex flex-wrap gap-1.5">
+                        {mine.slice(0, 8).map((x) => (
+                          <a key={x.id} href={`/prebook?event=${eid}`} className="chip hover:text-primary">
+                            {x.label.split(" · ")[0]?.replace(/ \d{4}$/, "")} · {time12(x.time)}
+                          </a>
+                        ))}
+                        {mine.length > 8 && <span className="text-xs text-muted-foreground">+{mine.length - 8} more</span>}
+                      </span>
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
             <div className="mt-4 flex flex-wrap gap-2">
               {h.hall_categories.map((c) => (
                 <span

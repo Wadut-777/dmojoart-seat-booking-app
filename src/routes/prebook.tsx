@@ -9,6 +9,8 @@ import { toPng } from "html-to-image";
 import { PriceLines } from "@/components/price-breakup";
 import { computeBreakup, DEFAULT_TAX, type PriceBreakup } from "@/lib/pricing";
 import { getTaxSettings } from "@/lib/tax.functions";
+import { listPublicShows } from "@/lib/shows.functions";
+import { time12 } from "@/lib/shows";
 
 import { getAvailability, listBookableEvents, listPublicExecutives, listPublicHalls } from "@/lib/catalog.functions";
 import { getPaymentStatus, payForBooking, startPayment } from "@/lib/payments.functions";
@@ -63,6 +65,8 @@ function Prebook() {
   const [eventId, setEventId] = useState<string>("");
   const [city, setCity] = useState<string>("");
   const [hallId, setHallId] = useState<string>("");
+  const [showDate, setShowDate] = useState<string>("");
+  const [showId, setShowId] = useState<string>("");
   const [category, setCategory] = useState<{ id: string; name: string; price: number } | null>(null);
   const [seats, setSeats] = useState(2);
   const [source, setSource] = useState<"self" | "executive">("self");
@@ -91,7 +95,9 @@ function Prebook() {
     queryKey: ["events"],
     queryFn: async () => {
       const data = await listBookableEvents();
-      if (data[0] && !eventId) setEventId(data[0].id);
+      // /prebook?event=<id> (from an event card) preselects that movie or event.
+      const wanted = typeof window === "undefined" ? null : new URLSearchParams(window.location.search).get("event");
+      if (data[0] && !eventId) setEventId(data.find((e) => e.id === wanted)?.id ?? data[0].id);
       return data;
     },
   });
@@ -101,11 +107,20 @@ function Prebook() {
     queryFn: () => listPublicHalls(),
   });
 
-  // Seats left per category for the chosen hall and event (null = no limit set).
+  // Show times: when the event has been listed on specific halls and times, only those can be booked.
+  const { data: showsInfo } = useQuery({
+    queryKey: ["public-shows", eventId],
+    queryFn: () => listPublicShows({ data: { eventId } }),
+    enabled: !!eventId,
+  });
+  const configured = !!showsInfo?.configured;
+  const eventShows = showsInfo?.shows ?? [];
+
+  // Seats left per category for the chosen hall, event and show (null = no limit set).
   const { data: availability, refetch: refetchAvailability } = useQuery({
-    queryKey: ["availability", hallId, eventId],
-    queryFn: () => getAvailability({ data: { hallId, eventId: eventId || "" } }),
-    enabled: !!hallId,
+    queryKey: ["availability", hallId, eventId, showId],
+    queryFn: () => getAvailability({ data: { hallId, eventId: eventId || "", showId } }),
+    enabled: !!hallId && (!showsInfo?.configured || !!showId),
     refetchInterval: 30_000,
   });
   const seatsAvailable = category ? (availability?.[category.id] ?? null) : null;
@@ -115,14 +130,17 @@ function Prebook() {
     queryFn: () => listPublicExecutives(),
   });
 
-  const cities = useMemo(
-    () => Array.from(new Set((halls ?? []).map((h) => h.city))).sort(),
-    [halls],
+  // Halls offered: every hall, or only those the event is listed on when it has shows.
+  const offeredHalls = useMemo(
+    () => (halls ?? []).filter((h) => !configured || eventShows.some((s) => s.hallId === h.id)),
+    [halls, configured, eventShows],
   );
-  const cityHalls = useMemo(
-    () => (halls ?? []).filter((h) => !city || h.city === city),
-    [halls, city],
-  );
+  const cities = useMemo(() => Array.from(new Set(offeredHalls.map((h) => h.city))).sort(), [offeredHalls]);
+  const cityHalls = useMemo(() => offeredHalls.filter((h) => !city || h.city === city), [offeredHalls, city]);
+  const hallShows = useMemo(() => eventShows.filter((s) => s.hallId === hallId), [eventShows, hallId]);
+  const showDates = useMemo(() => Array.from(new Set(hallShows.map((s) => s.date))), [hallShows]);
+  const activeDate = showDate && showDates.includes(showDate) ? showDate : (showDates[0] ?? "");
+  const timesOnDate = hallShows.filter((s) => s.date === activeDate);
 
   const hall = halls?.find((h) => h.id === hallId) ?? null;
   const { data: tax } = useQuery({ queryKey: ["tax-settings"], queryFn: () => getTaxSettings(), staleTime: 60_000 });
@@ -140,6 +158,10 @@ function Prebook() {
       toast.error("Select the executive who is making this booking.");
       return;
     }
+    if (configured && !showId) {
+      toast.error("Choose a show time first.");
+      return;
+    }
     if (!parsed.success) {
       toast.error(parsed.error.issues[0]?.message ?? "Please check your details.");
       return;
@@ -154,6 +176,7 @@ function Prebook() {
           phone: parsed.data.phone,
           hallId: hall.id,
           eventId: eventId || "",
+          showId: configured ? showId : "",
           categoryId: category.id,
           seats,
           source,
@@ -281,7 +304,13 @@ function Prebook() {
           <Field label="1. Select movie or event">
             <select
               value={eventId}
-              onChange={(e) => setEventId(e.target.value)}
+              onChange={(e) => {
+                setEventId(e.target.value);
+                setHallId("");
+                setShowId("");
+                setShowDate("");
+                setCategory(null);
+              }}
               className="w-full rounded-2xl border border-input bg-card px-4 py-3"
             >
               {events?.map((e) => (
@@ -317,6 +346,8 @@ function Prebook() {
                   type="button"
                   onClick={() => {
                     setHallId(h.id);
+                    setShowId("");
+                    setShowDate("");
                     setCategory(null);
                   }}
                   className={`rounded-2xl border p-4 text-left transition-colors ${
@@ -330,14 +361,64 @@ function Prebook() {
                   </p>
                   <p className="mt-1 font-semibold">{h.name}</p>
                   <p className="text-xs text-muted-foreground">
-                    Show time {h.show_time || "to be confirmed"}
+                    {configured
+                      ? `${eventShows.filter((s) => s.hallId === h.id).length} upcoming show${eventShows.filter((s) => s.hallId === h.id).length === 1 ? "" : "s"}`
+                      : `Show time ${h.show_time || "to be confirmed"}`}
                   </p>
                 </button>
               ))}
               {!cityHalls.length && (
-                <p className="text-sm text-muted-foreground">No cinema halls listed for this city yet.</p>
+                <p className="text-sm text-muted-foreground">
+                  {configured ? "This movie / event has no upcoming shows in this city yet." : "No cinema halls listed for this city yet."}
+                </p>
               )}
             </div>
+
+            {configured && hall && (
+              <div className="mt-6">
+                <p className="mb-3 text-sm font-semibold">Show time at {hall.name}</p>
+                {hallShows.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">No upcoming shows here. Please pick another cinema.</p>
+                ) : (
+                  <>
+                    <div className="flex flex-wrap gap-2" role="tablist" aria-label="Show dates">
+                      {showDates.map((d) => (
+                        <button
+                          key={d}
+                          type="button"
+                          role="tab"
+                          aria-selected={activeDate === d}
+                          onClick={() => {
+                            setShowDate(d);
+                            setShowId("");
+                            setCategory(null);
+                          }}
+                          className={`rounded-full px-4 py-2 text-sm font-medium ${activeDate === d ? "gold-surface" : "bg-muted text-muted-foreground hover:text-foreground"}`}
+                        >
+                          {hallShows.find((s) => s.date === d)?.label.split(" · ")[0]}
+                        </button>
+                      ))}
+                    </div>
+                    <div className="mt-3 flex flex-wrap gap-2">
+                      {timesOnDate.map((s) => (
+                        <button
+                          key={s.id}
+                          type="button"
+                          aria-pressed={showId === s.id}
+                          onClick={() => {
+                            setShowId(s.id);
+                            setCategory(null);
+                          }}
+                          className={`rounded-2xl border px-5 py-2.5 text-sm font-semibold transition-colors ${showId === s.id ? "border-primary bg-accent/30 text-primary" : "border-border hover:bg-muted/60"}`}
+                        >
+                          {time12(s.time)}
+                        </button>
+                      ))}
+                    </div>
+                  </>
+                )}
+              </div>
+            )}
           </Field>
 
           <Field label="Booking made by">
