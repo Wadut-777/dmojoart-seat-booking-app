@@ -7,7 +7,8 @@ export function holdMinutes(): number {
 }
 
 /**
- * Seats currently taken in one seat category of one hall for one event (or for "no event").
+ * Seats currently taken in one seat category of one hall for one event (or for "no event"), and, when the
+ * event is scheduled in shows, for one show (each show has its own seats).
  * Paid bookings always count; pending ones count only while their hold is still running.
  * Failed and refunded bookings free their seats.
  */
@@ -16,10 +17,12 @@ export async function seatsTaken(
   hallId: string,
   categoryName: string,
   eventId: string | null,
+  showId: string | null = null,
 ): Promise<number> {
   const [row] = await q.sql<{ n: number | string | null }[]>`
     SELECT COALESCE(SUM(num_seats), 0) AS n FROM bookings
     WHERE hall_id = ${hallId} AND seat_category = ${categoryName} AND event_id <=> ${eventId}
+      AND (${showId} IS NULL OR show_id = ${showId})
       AND (payment_status = 'paid'
            OR (payment_status = 'pending' AND created_at > DATE_SUB(UTC_TIMESTAMP(3), INTERVAL ${holdMinutes()} MINUTE)))`;
   return Number(row?.n ?? 0);

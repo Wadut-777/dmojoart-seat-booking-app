@@ -48,12 +48,16 @@ export const listPublicExecutives = createServerFn({ method: "GET" }).handler(as
 });
 
 /**
- * Seats left per seat category of one hall for one event. A category with no capacity limit is
+ * Seats left per seat category of one hall for one event (and one show, when the event is scheduled in shows). A category with no capacity limit is
  * reported as null (unlimited). Pending bookings count while their hold (BOOKING_HOLD_MINUTES) lasts.
  */
 export const getAvailability = createServerFn({ method: "GET" })
   .validator((d: unknown) =>
-    z.object({ hallId: z.string().uuid(), eventId: z.string().uuid().optional().or(z.literal("")) }).parse(d),
+    z.object({
+      hallId: z.string().uuid(),
+      eventId: z.string().uuid().optional().or(z.literal("")),
+      showId: z.string().uuid().optional().or(z.literal("")),
+    }).parse(d),
   )
   .handler(async ({ data }): Promise<Record<string, number | null>> => {
     const { sql } = await import("@/server/db.server");
@@ -62,7 +66,7 @@ export const getAvailability = createServerFn({ method: "GET" })
       SELECT id, name, capacity FROM hall_categories WHERE hall_id = ${data.hallId}`;
     const out: Record<string, number | null> = {};
     for (const c of cats) {
-      out[c.id] = Number(c.capacity) > 0 ? seatsLeft(Number(c.capacity), await seatsTaken({ sql }, data.hallId, c.name, data.eventId || null)) : null;
+      out[c.id] = Number(c.capacity) > 0 ? seatsLeft(Number(c.capacity), await seatsTaken({ sql }, data.hallId, c.name, data.eventId || null, data.showId || null)) : null;
     }
     return out;
   });

@@ -23,6 +23,7 @@ import { StaffManager, ROLE_LABELS } from "@/components/staff-manager";
 import { CmsAdmin } from "@/components/cms-admin";
 import { TaxAdmin } from "@/components/tax-admin";
 import { PaymentDialog } from "@/components/payment-dialog";
+import { ShowsAdmin } from "@/components/shows-admin";
 import { hasExtras, type PriceBreakup } from "@/lib/pricing";
 import type { AdminBooking } from "@/lib/admin.functions";
 
@@ -62,6 +63,7 @@ type BookingRow = {
   merchant_transaction_id: string | null;
   paid_at: string | null;
   ticket_code: string | null;
+  show_label: string | null;
   halls: { name: string } | null;
   events: { title: string } | null;
   executives: { name: string } | null;
@@ -101,6 +103,8 @@ function Admin() {
   const [ticketBooking, setTicketBooking] = useState<BookingRow | null>(null);
   const ticketRef = useRef<HTMLDivElement>(null);
   const [reconcile, setReconcile] = useState<AdminBooking | null>(null);
+  // Which hall or event has its show-times panel open: "hall:<id>" or "event:<id>".
+  const [showsFor, setShowsFor] = useState<string | null>(null);
   const canReconcile = isAdmin || roles.includes("booking_manager");
 
   async function downloadTicket() {
@@ -444,6 +448,7 @@ function Admin() {
       City: b.city,
       Event: b.events?.title ?? "",
       Hall: b.halls?.name ?? "",
+      "Show time": b.show_label ?? "",
       Category: b.seat_category,
       Seats: b.num_seats,
       "Unit Price": b.unit_price,
@@ -643,6 +648,12 @@ function Admin() {
                   {ev.is_active ? "Listed" : "Hidden"}
                 </button>
                 <button
+                  onClick={() => setShowsFor(showsFor === `event:${ev.id}` ? null : `event:${ev.id}`)}
+                  className="rounded-full border border-primary px-4 py-1.5 text-xs font-bold text-primary"
+                >
+                  Halls &amp; show times
+                </button>
+                <button
                   onClick={() => editEvent(ev)}
                   className="rounded-full border border-border px-4 py-1.5 text-xs font-bold"
                 >
@@ -655,6 +666,9 @@ function Admin() {
                   Delete
                 </button>
               </div>
+              {showsFor === `event:${ev.id}` && (
+                <ShowsAdmin scope={{ kind: "event", eventId: ev.id, name: ev.title }} onClose={() => setShowsFor(null)} />
+              )}
             </div>
           ))}
           {!events.data?.length && (
@@ -675,7 +689,7 @@ function Admin() {
                 ["city", "City"],
                 ["address", "Address"],
                 ["screen", "Screen"],
-                ["show_time", "Show time"],
+                ["show_time", "Default show time text (used when no shows are scheduled)"],
                 ["contact", "Contact"],
               ] as const
             ).map(([key, label]) => (
@@ -773,6 +787,12 @@ function Admin() {
                 {h.hall_categories.map((c) => `${c.name} ₹${c.price}`).join(" · ")}
               </p>
               <button
+                onClick={() => setShowsFor(showsFor === `hall:${h.id}` ? null : `hall:${h.id}`)}
+                className="mr-2 mt-3 rounded-full border border-primary px-4 py-1.5 text-xs font-bold text-primary"
+              >
+                Show times
+              </button>
+              <button
                 onClick={() => editHall(h)}
                 className="mt-3 rounded-full border border-border px-4 py-1.5 text-xs font-bold"
               >
@@ -784,6 +804,9 @@ function Admin() {
                 >
                   Delete
                 </button>
+              {showsFor === `hall:${h.id}` && (
+                <ShowsAdmin scope={{ kind: "hall", hallId: h.id, name: h.name }} onClose={() => setShowsFor(null)} />
+              )}
             </div>
           ))}
         </div>
@@ -953,6 +976,12 @@ function Admin() {
                     {b.halls?.name ?? "—"}
                     <br />
                     <span className="text-xs text-muted-foreground">{b.city}</span>
+                    {b.show_label && (
+                      <>
+                        <br />
+                        <span className="text-xs text-primary">{b.show_label}</span>
+                      </>
+                    )}
                   </td>
                   <td className="py-3 pr-4">
                     {b.booking_source === "executive" ? (b.executives?.name ?? "Executive") : "Self"}
@@ -1055,6 +1084,7 @@ function Admin() {
                     label="CINEMA"
                     value={`${ticketBooking.halls?.name ?? "—"}, ${ticketBooking.city}`}
                   />
+                  {ticketBooking.show_label && <TicketCell label="SHOW TIME" value={ticketBooking.show_label} />}
                   <TicketCell
                     label="BOOKED BY"
                     value={

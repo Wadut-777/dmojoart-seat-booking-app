@@ -7,6 +7,8 @@ const schema = z.object({
   phone: z.string().trim().regex(/^[0-9]{10}$/),
   hallId: z.string().uuid(),
   eventId: z.string().uuid().optional().or(z.literal("")),
+  /** Required when the event has been listed on specific halls and show times. */
+  showId: z.string().uuid().optional().or(z.literal("")),
   categoryId: z.string().uuid(),
   seats: z.number().int().min(1).max(20),
   source: z.enum(["self", "executive"]),
@@ -31,6 +33,26 @@ export const createBooking = createServerFn({ method: "POST" })
         SELECT booking_open, is_active FROM events WHERE id = ${data.eventId}`;
       if (!event || !event.booking_open || !event.is_active) {
         throw new Error("Bookings are closed for this show");
+      }
+    }
+
+    // Shows: an event that has been listed on halls and show times can only be booked for one of those shows.
+    // Events with no shows keep the original behaviour (any hall, the hall's default show time).
+    let showId: string | null = null;
+    let showLabelText: string | null = null;
+    if (data.showId && !data.eventId) throw new Error("Select a movie or event for this show time.");
+    if (data.eventId) {
+      const [cfg] = await sql<{ n: number }[]>`SELECT COUNT(*) AS n FROM hall_shows WHERE event_id = ${data.eventId} AND is_active = 1`;
+      if (Number(cfg?.n ?? 0) > 0) {
+        if (!data.showId) throw new Error("Please choose a show time.");
+        const [show] = await sql<{ id: string; hall_id: string; event_id: string; show_date: string; show_time: string; is_active: boolean }[]>`
+          SELECT id, hall_id, event_id, show_date, show_time, is_active FROM hall_shows WHERE id = ${data.showId}`;
+        const { isUpcoming, showLabel } = await import("@/lib/shows");
+        if (!show || !show.is_active || show.hall_id !== hall.id || show.event_id !== data.eventId || !isUpcoming(show.show_date, show.show_time)) {
+          throw new Error("That show time is no longer available. Please choose another.");
+        }
+        showId = show.id;
+        showLabelText = showLabel(show.show_date, show.show_time);
       }
     }
 
@@ -65,7 +87,7 @@ export const createBooking = createServerFn({ method: "POST" })
     const bookingRef = await transaction(
       async (tx) => {
         if (capacity > 0) {
-          const left = seatsLeft(capacity, await seatsTaken(tx, hall.id, category.name, data.eventId || null));
+          const left = seatsLeft(capacity, await seatsTaken(tx, hall.id, category.name, data.eventId || null, showId));
           if (left !== null && data.seats > left) {
             throw new Error(
               left <= 0
@@ -79,11 +101,11 @@ export const createBooking = createServerFn({ method: "POST" })
         const ref = `${refPrefix}${String(Number(row?.n)).padStart(6, "0")}`;
         await tx.exec`
           INSERT INTO bookings (
-            id, booking_ref, customer_name, email, phone, city, event_id, hall_id, seat_category, unit_price,
+            id, booking_ref, customer_name, email, phone, city, event_id, hall_id, show_id, show_label, seat_category, unit_price,
             num_seats, total_price, price_breakup, booking_source, executive_id
           ) VALUES (
             ${id}, ${ref}, ${data.name}, ${data.email || null}, ${data.phone}, ${hall.city}, ${data.eventId || null},
-            ${hall.id}, ${category.name}, ${unitPrice}, ${data.seats}, ${total}, ${breakupJson}, ${data.source}, ${executiveId}
+            ${hall.id}, ${showId}, ${showLabelText}, ${category.name}, ${unitPrice}, ${data.seats}, ${total}, ${breakupJson}, ${data.source}, ${executiveId}
           )`;
         return ref;
       },
@@ -97,7 +119,7 @@ export const createBooking = createServerFn({ method: "POST" })
       breakup,
       hallName: hall.name,
       city: hall.city,
-      showTime: hall.show_time ?? "",
+      showTime: showLabelText ?? hall.show_time ?? "",
       category: category.name,
     };
   });

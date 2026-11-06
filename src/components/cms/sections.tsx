@@ -1,4 +1,3 @@
-import { Link } from "@tanstack/react-router";
 import {
   ArrowRight,
   CalendarDays,
@@ -522,13 +521,13 @@ function Events() {
                     </p>
                   )}
                   {e.bookingOpen && (
-                    <Link
-                      to="/prebook"
+                    <a
+                      href={`/prebook?event=${e.id}`}
                       className="gold-surface mt-auto inline-flex items-center justify-center rounded-full px-5 py-3 text-sm font-medium uppercase tracking-wide hover:brightness-110"
                       style={{ marginTop: "1.25rem" }}
                     >
                       <T k="ctaText" />
-                    </Link>
+                    </a>
                   )}
                 </div>
               </article>
