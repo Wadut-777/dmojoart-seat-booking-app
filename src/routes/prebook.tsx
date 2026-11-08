@@ -15,7 +15,6 @@ import { time12 } from "@/lib/shows";
 import { getAvailability, listBookableEvents, listPublicExecutives, listPublicHalls } from "@/lib/catalog.functions";
 import { getPaymentStatus, payForBooking, startPayment } from "@/lib/payments.functions";
 import { createBooking } from "@/lib/bookings.functions";
-import titleAsset from "@/assets/premxl-title.asset.json";
 
 export const Route = createFileRoute("/prebook")({
   head: () => ({
@@ -293,8 +292,7 @@ function Prebook() {
   return (
     <div className="hero-surface min-h-screen">
       <div className="mx-auto max-w-4xl px-5 py-16">
-        <img src={titleAsset.url} alt="PremXL" className="h-16 w-auto" />
-        <h1 className="mt-4 text-4xl md:text-5xl">Official Pre-booking</h1>
+        <h1 className="text-4xl md:text-5xl">Official Pre-booking</h1>
         <p className="mt-2 text-muted-foreground">
           A paid pre-booking voucher. Final screen, show time and seat allocation confirmed by 30
           September 2026.
