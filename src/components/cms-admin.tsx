@@ -24,7 +24,7 @@ import {
   type CmsItem,
   type CmsPage,
 } from "@/lib/cms.functions";
-import { COLLECTIONS, type CollectionSpec, type FieldSpec, type SettingKey, type SiteSettings } from "@/lib/cms-schema";
+import { COLLECTIONS, type CollectionSpec, type FooterColumn, type FooterLink, type FieldSpec, type SettingKey, type SiteSettings } from "@/lib/cms-schema";
 import { mediaUrl, uploadMedia } from "@/lib/media";
 
 const input = "w-full rounded-lg border border-input bg-background px-3 py-2 text-sm";
@@ -234,6 +234,10 @@ function SettingsEditor() {
           <Labeled label="Newsletter text">
             <input className={input} value={s.footer.newsletterText} onChange={(e) => patch("footer", { ...s.footer, newsletterText: e.target.value })} />
           </Labeled>
+          <Labeled label="Newsletter text">
+            <input className={input} value={s.footer.newsletterText} onChange={(e) => patch("footer", { ...s.footer, newsletterText: e.target.value })} />
+          </Labeled>
+          <FooterLinksEditor s={s} patch={patch} />
         </>,
       )}
       {group(
@@ -291,6 +295,145 @@ function SettingsEditor() {
           </Labeled>
         </>,
       )}
+    </div>
+  );
+}
+
+/** Footer link sections ("Explore"-style), small bottom links and show/hide switches. */
+function FooterLinksEditor({ s, patch }: { s: SiteSettings; patch: <K extends keyof SiteSettings>(key: K, value: SiteSettings[K]) => void }) {
+  const pagesQ = useQuery({ queryKey: ["admin-cms-pages"], queryFn: () => adminListCmsPages() });
+  const f = s.footer;
+  // Until the footer has been customised it shows "Explore" built from the menu; start the editor from that.
+  const columns: FooterColumn[] = f.columns ?? [{ title: "Explore", links: s.nav.filter((n) => n.enabled).map((n) => ({ label: n.label, href: n.href })) }];
+  const bottom: FooterLink[] = f.bottomLinks ?? [];
+  const setFooter = (next: Partial<SiteSettings["footer"]>) => patch("footer", { ...f, ...next });
+  const setColumns = (c: FooterColumn[]) => setFooter({ columns: c });
+  const setLinks = (ci: number, links: FooterLink[]) => setColumns(columns.map((c, i) => (i === ci ? { ...c, links } : c)));
+
+  // Pages that can be linked from the footer: every CMS page plus the booking and listing pages.
+  const pageChoices = [
+    ...(pagesQ.data ?? []).map((p) => ({ label: p.title, href: p.path })),
+    { label: "Book tickets", href: "/prebook" },
+    { label: "Events", href: "/events" },
+    { label: "Productions", href: "/productions" },
+  ].filter((p, i, all) => all.findIndex((x) => x.href === p.href) === i);
+
+  const pagePicker = (onPick: (l: FooterLink) => void) => (
+    <select
+      aria-label="Add a page link"
+      className={input + " w-auto"}
+      value=""
+      onChange={(e) => {
+        const choice = pageChoices.find((p) => p.href === e.target.value);
+        if (choice) onPick(choice);
+      }}
+    >
+      <option value="">+ Add a page…</option>
+      {pageChoices.map((p) => (
+        <option key={p.href} value={p.href}>
+          {p.label} ({p.href})
+        </option>
+      ))}
+    </select>
+  );
+
+  const linkRow = (l: FooterLink, onChange: (l: FooterLink) => void, onMove: (by: number) => void, onRemove: () => void, first: boolean, last: boolean) => (
+    <div className="grid grid-cols-[1fr_1fr_auto] items-center gap-2">
+      <input aria-label="Link text" className={input} value={l.label} onChange={(e) => onChange({ ...l, label: e.target.value })} />
+      <input aria-label="Link address" className={input} placeholder="/page or https://…" value={l.href} onChange={(e) => onChange({ ...l, href: e.target.value })} />
+      <div className="flex items-center gap-1">
+        <button type="button" aria-label="Move up" disabled={first} onClick={() => onMove(-1)}>
+          <ArrowUp className="size-4" />
+        </button>
+        <button type="button" aria-label="Move down" disabled={last} onClick={() => onMove(1)}>
+          <ArrowDown className="size-4" />
+        </button>
+        <button type="button" aria-label="Remove link" onClick={onRemove}>
+          <Trash2 className="size-4" />
+        </button>
+      </div>
+    </div>
+  );
+
+  return (
+    <div className="space-y-5">
+      <div className="space-y-4">
+        <p className="text-xs font-bold uppercase tracking-[0.15em] text-muted-foreground">Link sections</p>
+        {columns.map((c, ci) => (
+          <div key={ci} className="space-y-2 rounded-xl border border-border p-3">
+            <div className="flex items-center gap-2">
+              <input aria-label="Section title" className={input + " font-semibold"} placeholder="Section title (e.g. Explore)" value={c.title} onChange={(e) => setColumns(columns.map((x, i) => (i === ci ? { ...x, title: e.target.value } : x)))} />
+              <button type="button" aria-label="Move section up" disabled={ci === 0} onClick={() => setColumns(move(columns, ci, -1))}>
+                <ArrowUp className="size-4" />
+              </button>
+              <button type="button" aria-label="Move section down" disabled={ci === columns.length - 1} onClick={() => setColumns(move(columns, ci, 1))}>
+                <ArrowDown className="size-4" />
+              </button>
+              <button
+                type="button"
+                aria-label="Delete section"
+                onClick={() => {
+                  if (window.confirm(`Delete the footer section “${c.title || "untitled"}”?`)) setColumns(columns.filter((_, i) => i !== ci));
+                }}
+              >
+                <Trash2 className="size-4" />
+              </button>
+            </div>
+            {c.links.map((l, li) =>
+              linkRow(
+                l,
+                (next) => setLinks(ci, c.links.map((x, j) => (j === li ? next : x))),
+                (by) => setLinks(ci, move(c.links, li, by)),
+                () => setLinks(ci, c.links.filter((_, j) => j !== li)),
+                li === 0,
+                li === c.links.length - 1,
+              ),
+            )}
+            <div className="flex flex-wrap items-center gap-2">
+              {pagePicker((l) => setLinks(ci, [...c.links, l]))}
+              <button type="button" className={btn} onClick={() => setLinks(ci, [...c.links, { label: "", href: "" }])}>
+                <Plus className="mr-1 inline size-3" /> Custom link
+              </button>
+            </div>
+          </div>
+        ))}
+        <button type="button" className={btn} onClick={() => setColumns([...columns, { title: "New section", links: [] }])}>
+          <Plus className="mr-1 inline size-3" /> Add section
+        </button>
+      </div>
+
+      <div className="space-y-2">
+        <p className="text-xs font-bold uppercase tracking-[0.15em] text-muted-foreground">Bottom bar links (Privacy, Terms…)</p>
+        {bottom.map((l, i) =>
+          linkRow(
+            l,
+            (next) => setFooter({ bottomLinks: bottom.map((x, j) => (j === i ? next : x)) }),
+            (by) => setFooter({ bottomLinks: move(bottom, i, by) }),
+            () => setFooter({ bottomLinks: bottom.filter((_, j) => j !== i) }),
+            i === 0,
+            i === bottom.length - 1,
+          ),
+        )}
+        <div className="flex flex-wrap items-center gap-2">
+          {pagePicker((l) => setFooter({ bottomLinks: [...bottom, l] }))}
+          <button type="button" className={btn} onClick={() => setFooter({ bottomLinks: [...bottom, { label: "", href: "" }] })}>
+            <Plus className="mr-1 inline size-3" /> Custom link
+          </button>
+        </div>
+      </div>
+
+      <div className="space-y-2 text-sm">
+        <label className="flex items-center gap-2">
+          <input type="checkbox" checked={f.showContact !== false} onChange={(e) => setFooter({ showContact: e.target.checked })} /> Show contact details
+        </label>
+        <label className="flex items-center gap-2">
+          <input type="checkbox" checked={f.showNewsletter !== false} onChange={(e) => setFooter({ showNewsletter: e.target.checked })} /> Show newsletter sign-up
+        </label>
+        <label className="flex items-center gap-2">
+          <input type="checkbox" checked={f.showAdminLink !== false} onChange={(e) => setFooter({ showAdminLink: e.target.checked })} /> Show “Admin” link in the bottom bar
+        </label>
+      </div>
+      <p className="text-xs text-muted-foreground">Contact details and social links come from their own settings below. Press “Save footer” to publish the changes.</p>
     </div>
   );
 }

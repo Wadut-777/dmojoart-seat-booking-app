@@ -159,11 +159,26 @@ export const SETTING_KEYS = ["brand", "theme", "nav", "footer", "social", "conta
 export type SettingKey = (typeof SETTING_KEYS)[number];
 
 export type NavItem = { label: string; href: string; enabled: boolean };
+export type FooterLink = { label: string; href: string };
+/** A titled list of links in the footer, like "Explore". */
+export type FooterColumn = { title: string; links: FooterLink[] };
 export type SiteSettings = {
   brand: { name: string; tagline: string; logo: string; logoText: string };
   theme: { accent: string; accentSoft: string; highlight: string; background: string; surface: string };
   nav: NavItem[];
-  footer: { intro: string; copyright: string; newsletterTitle: string; newsletterText: string };
+  footer: {
+    intro: string;
+    copyright: string;
+    newsletterTitle: string;
+    newsletterText: string;
+    /** Link sections. When never edited (undefined) the footer shows one "Explore" section built from the menu. */
+    columns?: FooterColumn[] | undefined;
+    /** Small links in the bottom bar (Privacy, Terms…). */
+    bottomLinks?: FooterLink[] | undefined;
+    showContact?: boolean | undefined;
+    showNewsletter?: boolean | undefined;
+    showAdminLink?: boolean | undefined;
+  };
   social: { label: string; url: string }[];
   contact: { email: string; phone: string; address: string; hours: string; mapEmbedUrl: string };
   analytics: { gaId: string; searchConsoleToken: string };
