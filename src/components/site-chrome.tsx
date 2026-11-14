@@ -133,7 +133,7 @@ export function SiteFooter() {
   const bottomLinks = (footer.bottomLinks ?? []).filter((l) => l.label && l.href);
   return (
     <footer className="mx-3 mb-3 mt-24 rounded-[2rem] border border-border/60 bg-card/60 sm:mx-5">
-      <div className="mx-auto grid max-w-7xl gap-12 px-5 py-16 sm:grid-cols-2 lg:grid-cols-[1.4fr_repeat(auto-fit,minmax(10rem,1fr))]">
+      <div className="mx-auto grid max-w-7xl gap-12 px-5 py-16 sm:grid-cols-2 lg:grid-cols-4">
         <div>
           <Brand />
           <p className="mt-4 text-sm text-muted-foreground">{footer.intro}</p>
