@@ -124,10 +124,17 @@ function NavLink({ href, label, onClick, block = false }: { href: string; label:
 export function SiteFooter() {
   const { brand, nav, footer, social, contact } = useSiteSettings();
   const links = social.filter((s) => s.url);
+  // Link sections: what the admin set up, or (until then) one "Explore" section built from the menu.
+  const columns = (footer.columns ?? [{ title: "Explore", links: nav.filter((n) => n.enabled).map((n) => ({ label: n.label, href: n.href })) }])
+    .map((c) => ({ ...c, links: c.links.filter((l) => l.label && l.href) }))
+    .filter((c) => c.title || c.links.length > 0);
+  const showContact = footer.showContact !== false && !!(contact.email || contact.phone || contact.address);
+  const showNewsletter = footer.showNewsletter !== false;
+  const bottomLinks = (footer.bottomLinks ?? []).filter((l) => l.label && l.href);
   return (
     <footer className="mx-3 mb-3 mt-24 rounded-[2rem] border border-border/60 bg-card/60 sm:mx-5">
-      <div className="mx-auto grid max-w-7xl gap-12 px-5 py-16 md:grid-cols-4">
-        <div className="md:col-span-1">
+      <div className="mx-auto grid max-w-7xl gap-12 px-5 py-16 sm:grid-cols-2 lg:grid-cols-[1.4fr_repeat(auto-fit,minmax(10rem,1fr))]">
+        <div>
           <Brand />
           <p className="mt-4 text-sm text-muted-foreground">{footer.intro}</p>
           {links.length > 0 && (
@@ -141,52 +148,63 @@ export function SiteFooter() {
           )}
         </div>
 
-        <nav aria-label="Footer">
-          <h2 className="font-sans text-sm font-semibold text-primary">Explore</h2>
-          <ul className="mt-4 space-y-2 text-sm">
-            {nav
-              .filter((n) => n.enabled)
-              .map((n) => (
-                <li key={n.href}>
-                  <NavLink href={n.href} label={n.label} />
+        {columns.map((c, i) => (
+          <nav key={`${c.title}-${i}`} aria-label={c.title || "Footer links"}>
+            {c.title && <h2 className="font-sans text-sm font-semibold text-primary">{c.title}</h2>}
+            <ul className="mt-4 space-y-2 text-sm">
+              {c.links.map((l, j) => (
+                <li key={`${l.href}-${j}`}>
+                  <NavLink href={l.href} label={l.label} />
                 </li>
               ))}
-          </ul>
-        </nav>
+            </ul>
+          </nav>
+        ))}
 
-        <div>
-          <h2 className="font-sans text-sm font-semibold text-primary">Contact</h2>
-          <ul className="mt-4 space-y-2 text-sm text-muted-foreground">
-            {contact.email && (
-              <li>
-                <a href={`mailto:${contact.email}`} className="hover:text-primary">
-                  {contact.email}
-                </a>
-              </li>
-            )}
-            {contact.phone && (
-              <li>
-                <a href={`tel:${contact.phone.replace(/\s+/g, "")}`} className="hover:text-primary">
-                  {contact.phone}
-                </a>
-              </li>
-            )}
-            {contact.address && <li className="whitespace-pre-line">{contact.address}</li>}
-          </ul>
-        </div>
+        {showContact && (
+          <div>
+            <h2 className="font-sans text-sm font-semibold text-primary">Contact</h2>
+            <ul className="mt-4 space-y-2 text-sm text-muted-foreground">
+              {contact.email && (
+                <li>
+                  <a href={`mailto:${contact.email}`} className="hover:text-primary">
+                    {contact.email}
+                  </a>
+                </li>
+              )}
+              {contact.phone && (
+                <li>
+                  <a href={`tel:${contact.phone.replace(/\s+/g, "")}`} className="hover:text-primary">
+                    {contact.phone}
+                  </a>
+                </li>
+              )}
+              {contact.address && <li className="whitespace-pre-line">{contact.address}</li>}
+            </ul>
+          </div>
+        )}
 
-        <div>
-          <h2 className="font-sans text-sm font-semibold text-primary">{footer.newsletterTitle}</h2>
-          <p className="mt-4 text-sm text-muted-foreground">{footer.newsletterText}</p>
-          <NewsletterForm className="mt-4" />
-        </div>
+        {showNewsletter && (
+          <div>
+            <h2 className="font-sans text-sm font-semibold text-primary">{footer.newsletterTitle}</h2>
+            <p className="mt-4 text-sm text-muted-foreground">{footer.newsletterText}</p>
+            <NewsletterForm className="mt-4" />
+          </div>
+        )}
       </div>
       <div className="border-t border-border/60">
         <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-3 px-5 py-5 text-xs text-muted-foreground">
           <p>{footer.copyright || `© ${brand.name}`}</p>
-          <Link to="/admin" className="hover:text-primary">
-            Admin
-          </Link>
+          <div className="flex flex-wrap items-center gap-x-5 gap-y-1">
+            {bottomLinks.map((l, i) => (
+              <NavLink key={`${l.href}-${i}`} href={l.href} label={l.label} />
+            ))}
+            {footer.showAdminLink !== false && (
+              <Link to="/admin" className="hover:text-primary">
+                Admin
+              </Link>
+            )}
+          </div>
         </div>
       </div>
     </footer>
