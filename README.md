@@ -97,3 +97,10 @@ Run the SQL in `db/migrations/` through phpMyAdmin if you can't run `npm run db:
 - **Booking flow:** if a movie/event has shows, the booking page offers only the halls it is listed on, then a date and time. Each show has its own seat capacity per category. The chosen show is stored on the booking and printed on the e-ticket, tax invoice, admin bookings table and Excel export. Past shows disappear automatically.
 - **Unchanged for existing data:** movies/events with no shows behave exactly as before (any hall, the hall's default show-time text).
 - Event cards link to `/prebook?event=<id>` so the booking page opens on that movie/event. `/events` lists upcoming shows under each cinema hall.
+
+## Formatted text and legal pages (stage 12)
+
+- **Formatting on the page:** in edit mode, click any multi-line text (introductions, body text, descriptions) and a toolbar appears: bold, italic, bulleted and numbered lists, links. Pasting always inserts plain text.
+- **Legal document section:** *Full-width document (privacy policy, terms)* can be added to any page, or choose page type *Legal document* in Pages & SEO → Add new page. Its toolbar also has heading, sub-heading and paragraph buttons.
+- **Format:** text is stored as a small Markdown subset (`## Heading`, `**bold**`, `*italic*`, `[text](url)`, `- bullet`, `1. numbered`), see `src/lib/richtext.ts`. It is escaped when displayed and only http(s), mailto, tel, "/" and "#" links are kept. Text written earlier shows exactly as before. No database change is needed.
+- The starter privacy text is a placeholder only. Have your legal policies reviewed by a professional before publishing.

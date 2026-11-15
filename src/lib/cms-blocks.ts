@@ -117,6 +117,18 @@ export const BLOCK_SPECS: BlockSpec[] = [
     ],
   },
   {
+    type: "legal",
+    label: "Full-width document (privacy policy, terms)",
+    fields: [
+      f("eyebrow", "Small label above the title"),
+      f("title", "Title"),
+      f("updated", "“Last updated” line"),
+      f("body", "Document text", "textarea", {
+        help: "Formatting: ## Heading, ### Sub-heading, **bold**, *italic*, [link text](https://…), - bullet, 1. numbered. A blank line starts a new paragraph. On the page itself you can use the toolbar instead.",
+      }),
+    ],
+  },
+  {
     type: "services",
     label: "Our expertise (services)",
     collections: ["services"],
