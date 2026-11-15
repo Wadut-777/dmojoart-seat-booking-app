@@ -293,7 +293,7 @@ function RichText() {
         <Reveal className={cn(left && "md:order-2")}>
           <T k="eyebrow" as="p" className="text-sm font-medium text-primary" />
           <T k="title" as="h2" className="mt-2 text-3xl leading-[1.1] md:text-5xl" />
-          <T k="body" as="p" multiline className="mt-6 whitespace-pre-line text-base leading-relaxed text-muted-foreground md:text-lg" />
+          <T k="body" as="p" multiline className="mt-6 text-base leading-relaxed text-muted-foreground md:text-lg" />
         </Reveal>
         <Reveal delay={120} className={cn(left && "md:order-1")}>
           <div className="aspect-[4/3] overflow-hidden rounded-[2rem] border border-border/50">
@@ -847,6 +847,18 @@ function Releases() {
   );
 }
 
+/** Full-width formatted document: privacy policy, terms and conditions, and similar long text. */
+function Legal() {
+  return (
+    <Wrap tone="panel">
+      <T k="eyebrow" as="p" className="text-sm font-medium text-primary" />
+      <T k="title" as="h2" className="mt-2 text-3xl leading-[1.1] md:text-5xl" />
+      <T k="updated" as="p" className="mt-3 text-sm text-muted-foreground" />
+      <T k="body" as="div" multiline format="document" className="mt-8 w-full text-base leading-relaxed text-muted-foreground md:text-lg" />
+    </Wrap>
+  );
+}
+
 /* ───────────── lists inside the section itself ───────────── */
 
 function Why() {
@@ -1001,6 +1013,7 @@ export const SECTION_COMPONENTS: Record<string, () => ReactNode> = {
   pagehero: PageHero,
   about: About,
   richtext: RichText,
+  legal: Legal,
   services: Services,
   productions: Productions,
   events: Events,

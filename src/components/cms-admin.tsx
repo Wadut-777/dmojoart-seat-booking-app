@@ -796,6 +796,7 @@ function NewPageForm({ pages, rows, onCreated }: { pages: CmsPage[]; rows: Row[]
   const [slugTouched, setSlugTouched] = useState(false);
   const [parent, setParent] = useState("");
   const [menu, setMenu] = useState(true);
+  const [template, setTemplate] = useState<"standard" | "legal">("standard");
   const [busy, setBusy] = useState(false);
 
   if (!open) {
@@ -813,7 +814,7 @@ function NewPageForm({ pages, rows, onCreated }: { pages: CmsPage[]; rows: Row[]
     e.preventDefault();
     setBusy(true);
     try {
-      const res = await createCmsPage({ data: { title, slug, parentSlug: parent || null, addToMenu: menu } });
+      const res = await createCmsPage({ data: { title, slug, parentSlug: parent || null, addToMenu: menu, template } });
       await onCreated();
       toast.success("Page created. Opening it so you can add content.");
       window.location.assign(res.path);
@@ -850,6 +851,12 @@ function NewPageForm({ pages, rows, onCreated }: { pages: CmsPage[]; rows: Row[]
             setSlug(slugify(e.target.value));
           }}
         />
+      </Labeled>
+      <Labeled label="Page type">
+        <select className={input} value={template} onChange={(e) => setTemplate(e.target.value as "standard" | "legal")}>
+          <option value="standard">Standard page (banner, text, call to action)</option>
+          <option value="legal">Legal document: privacy policy, terms and conditions (full-width formatted text)</option>
+        </select>
       </Labeled>
       <Labeled label="Place under">
         <select className={input} value={parent} onChange={(e) => setParent(e.target.value)}>

@@ -175,6 +175,8 @@ export const createCmsPage = createServerFn({ method: "POST" })
         slug: z.string().regex(/^[a-z0-9]+(-[a-z0-9]+)*$/, "Use lowercase letters, numbers and hyphens only.").max(60),
         parentSlug: z.string().regex(/^[a-z0-9-]{1,100}$/).nullable(),
         addToMenu: z.boolean(),
+        /** "legal" starts with a banner and a full-width document section (privacy policy, terms). */
+        template: z.enum(["standard", "legal"]).optional(),
       })
       .parse(d),
   )
@@ -202,11 +204,17 @@ export const createCmsPage = createServerFn({ method: "POST" })
       await tx.exec`
         INSERT INTO cms_pages (slug, title, parent_slug, position, is_custom, is_published)
         VALUES (${data.slug}, ${data.title}, ${data.parentSlug}, ${position}, 1, 1)`;
-      const layout: [string, Record<string, unknown>][] = [
+      const legal = data.template === "legal";
+      const layout: [string, Record<string, unknown>][] = legal
+        ? [
+            ["pagehero", { ...defaultBlockData("pagehero"), title: data.title, subtitle: "" }],
+            ["legal", { ...defaultBlockData("legal"), title: data.title }],
+          ]
+        : [
         ["pagehero", { ...defaultBlockData("pagehero"), title: data.title, subtitle: "Add a short introduction to this page." }],
         ["richtext", { ...defaultBlockData("richtext"), eyebrow: "About this page", title: "Write your content here", body: "Click any text on the page to edit it, and use the section menu to add galleries, events, forms and more." }],
         ["cta", defaultBlockData("cta")],
-      ];
+          ];
       for (const [i, [type, block]] of layout.entries()) {
         const json = JSON.stringify(block);
         await tx.exec`

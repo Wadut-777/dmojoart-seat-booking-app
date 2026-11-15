@@ -1,9 +1,10 @@
 import { Link } from "@tanstack/react-router";
-import { ArrowRight, ImagePlus } from "lucide-react";
-import { createContext, useContext, useRef, type ElementType, type ReactNode } from "react";
+import { ArrowRight, Bold, Heading2, Heading3, ImagePlus, Italic, Link2, List, ListOrdered, Pilcrow, Unlink } from "lucide-react";
+import { createContext, useContext, useRef, useState, type ElementType, type ReactNode } from "react";
 import { toast } from "sonner";
 
 import { str, type BlockData } from "@/lib/cms-blocks";
+import { htmlToMd, mdToHtml } from "@/lib/richtext";
 import { mediaUrl, uploadMedia } from "@/lib/media";
 import { cn } from "@/lib/utils";
 
@@ -41,16 +42,22 @@ export function T({
   as = "span",
   className,
   multiline = false,
+  format = "basic",
 }: {
   k: string;
   as?: ElementType;
   className?: string;
+  /** Multi-line text supports basic formatting (bold, italic, links, lists). */
   multiline?: boolean;
+  /** "document" adds heading buttons, for long pages such as privacy policy and terms. */
+  format?: "basic" | "document";
 }) {
   const { id, data } = useBlock();
   const ed = useEditor();
   const Tag = as;
   const value = str(data, k);
+
+  if (multiline) return <RichField k={k} className={className} format={format} />;
 
   if (!ed.editing) return value ? <Tag className={className}>{value}</Tag> : null;
 
@@ -72,6 +79,100 @@ export function T({
     >
       {value || "Click to edit"}
     </Tag>
+  );
+}
+
+/** Formatted text block: shown as formatted text to visitors; editors get a small formatting toolbar. */
+function RichField({ k, className, format }: { k: string; className?: string | undefined; format: "basic" | "document" }) {
+  const { id, data } = useBlock();
+  const ed = useEditor();
+  const value = str(data, k);
+  const [focused, setFocused] = useState(false);
+  const html = mdToHtml(value);
+
+  if (!ed.editing) return html ? <div className={cn("rich", className)} dangerouslySetInnerHTML={{ __html: html }} /> : null;
+
+  return (
+    <div className="relative">
+      {focused && <FormatBar format={format} />}
+      <div
+        className={cn("rich rich-edit", className, "min-h-8 cursor-text outline-dashed outline-1 outline-offset-2 outline-primary/70")}
+        contentEditable
+        suppressContentEditableWarning
+        onFocus={() => setFocused(true)}
+        onBlur={(e: React.FocusEvent<HTMLDivElement>) => {
+          setFocused(false);
+          const next = htmlToMd(e.currentTarget);
+          if (next !== value) ed.updateField(id, k, next);
+        }}
+        // Paste as plain text so copied web pages and Word files cannot bring their own styling along.
+        onPaste={(e: React.ClipboardEvent<HTMLDivElement>) => {
+          e.preventDefault();
+          document.execCommand("insertText", false, e.clipboardData.getData("text/plain"));
+        }}
+        dangerouslySetInnerHTML={{ __html: html }}
+      />
+    </div>
+  );
+}
+
+/** Floating formatting buttons. mousedown is cancelled so the text selection (and focus) stays in the editor. */
+function FormatBar({ format }: { format: "basic" | "document" }) {
+  const run = (cmd: string, value?: string) => document.execCommand(cmd, false, value);
+  const btn = "grid size-8 place-items-center rounded-lg text-foreground hover:bg-muted";
+  const B = ({ label, onClick, children }: { label: string; onClick: () => void; children: ReactNode }) => (
+    <button type="button" aria-label={label} title={label} className={btn} onMouseDown={(e) => e.preventDefault()} onClick={onClick}>
+      {children}
+    </button>
+  );
+  return (
+    <div
+      role="toolbar"
+      aria-label="Text formatting"
+      className="absolute -top-12 left-0 z-30 flex items-center gap-0.5 rounded-xl border border-border bg-card p-1 shadow-xl"
+      onMouseDown={(e) => e.preventDefault()}
+    >
+      <B label="Bold" onClick={() => run("bold")}>
+        <Bold className="size-4" />
+      </B>
+      <B label="Italic" onClick={() => run("italic")}>
+        <Italic className="size-4" />
+      </B>
+      {format === "document" && (
+        <>
+          <span className="mx-1 h-5 w-px bg-border" aria-hidden="true" />
+          <B label="Heading" onClick={() => run("formatBlock", "h2")}>
+            <Heading2 className="size-4" />
+          </B>
+          <B label="Sub-heading" onClick={() => run("formatBlock", "h3")}>
+            <Heading3 className="size-4" />
+          </B>
+          <B label="Normal paragraph" onClick={() => run("formatBlock", "p")}>
+            <Pilcrow className="size-4" />
+          </B>
+        </>
+      )}
+      <span className="mx-1 h-5 w-px bg-border" aria-hidden="true" />
+      <B label="Bulleted list" onClick={() => run("insertUnorderedList")}>
+        <List className="size-4" />
+      </B>
+      <B label="Numbered list" onClick={() => run("insertOrderedList")}>
+        <ListOrdered className="size-4" />
+      </B>
+      <span className="mx-1 h-5 w-px bg-border" aria-hidden="true" />
+      <B
+        label="Add link"
+        onClick={() => {
+          const url = window.prompt("Link address (https://… or /page)");
+          if (url && /^(https?:\/\/|mailto:|tel:|\/|#)/i.test(url.trim())) run("createLink", url.trim());
+        }}
+      >
+        <Link2 className="size-4" />
+      </B>
+      <B label="Remove link" onClick={() => run("unlink")}>
+        <Unlink className="size-4" />
+      </B>
+    </div>
   );
 }
 

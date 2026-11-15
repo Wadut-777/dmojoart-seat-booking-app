@@ -66,11 +66,26 @@
       "eyebrow": "Why D Mojo Art",
       "title": "Built on craft",
       "items": [
-        { "title": "Creative excellence", "description": "Placeholder: describe what sets your creative work apart." },
-        { "title": "Professional production", "description": "Placeholder: describe your production standards." },
-        { "title": "End-to-end event management", "description": "Placeholder: from planning to show day." },
-        { "title": "Artist collaboration", "description": "Placeholder: how you work with artists." },
-        { "title": "Memorable experiences", "description": "Placeholder: what audiences take away." }
+        {
+          "title": "Creative excellence",
+          "description": "Placeholder: describe what sets your creative work apart."
+        },
+        {
+          "title": "Professional production",
+          "description": "Placeholder: describe your production standards."
+        },
+        {
+          "title": "End-to-end event management",
+          "description": "Placeholder: from planning to show day."
+        },
+        {
+          "title": "Artist collaboration",
+          "description": "Placeholder: how you work with artists."
+        },
+        {
+          "title": "Memorable experiences",
+          "description": "Placeholder: what audiences take away."
+        }
       ]
     },
     "partners": {
@@ -115,14 +130,32 @@
       "eyebrow": "Our journey",
       "title": "How we got here",
       "items": [
-        { "year": "Year", "title": "Milestone one", "description": "Placeholder milestone." },
-        { "year": "Year", "title": "Milestone two", "description": "Placeholder milestone." },
-        { "year": "Year", "title": "Milestone three", "description": "Placeholder milestone." }
+        {
+          "year": "Year",
+          "title": "Milestone one",
+          "description": "Placeholder milestone."
+        },
+        {
+          "year": "Year",
+          "title": "Milestone two",
+          "description": "Placeholder milestone."
+        },
+        {
+          "year": "Year",
+          "title": "Milestone three",
+          "description": "Placeholder milestone."
+        }
       ]
     },
     "releases": {
       "eyebrow": "Releases",
       "title": "Featured tracks and releases"
+    },
+    "legal": {
+      "eyebrow": "Legal",
+      "title": "Privacy Policy",
+      "updated": "Last updated: [date]",
+      "body": "## 1. Introduction\n\nThis is placeholder text. Replace it with your own policy and have it reviewed by a legal professional before publishing.\n\n## 2. Information we collect\n\n- Details you give us, such as name, email and phone number\n- Booking and payment information\n- Technical data such as device and browser type\n\n## 3. How we use your information\n\nWe use your information to process bookings, send tickets and respond to enquiries.\n\n## 4. Contact us\n\nQuestions about this policy? Write to us using the details on our [contact page](/contact)."
     }
   },
   "layouts": {
@@ -130,8 +163,12 @@
       "hero",
       "about",
       "services",
-      { "type": "productions" },
-      { "type": "events" },
+      {
+        "type": "productions"
+      },
+      {
+        "type": "events"
+      },
       "artists",
       "videos",
       "portfolio",
@@ -140,85 +177,258 @@
       "cta"
     ],
     "about": [
-      { "type": "pagehero", "data": { "title": "About us", "subtitle": "The story, the people and the standards behind D Mojo Art." } },
-      { "type": "richtext", "data": { "eyebrow": "Who we are", "title": "Company introduction", "body": "Placeholder: write a short introduction to the company." } },
-      { "type": "richtext", "data": { "eyebrow": "Vision & mission", "title": "Where we are heading", "body": "Placeholder: vision and mission statement.", "imageSide": "left" } },
+      {
+        "type": "pagehero",
+        "data": {
+          "title": "About us",
+          "subtitle": "The story, the people and the standards behind D Mojo Art."
+        }
+      },
+      {
+        "type": "richtext",
+        "data": {
+          "eyebrow": "Who we are",
+          "title": "Company introduction",
+          "body": "Placeholder: write a short introduction to the company."
+        }
+      },
+      {
+        "type": "richtext",
+        "data": {
+          "eyebrow": "Vision & mission",
+          "title": "Where we are heading",
+          "body": "Placeholder: vision and mission statement.",
+          "imageSide": "left"
+        }
+      },
       "timeline",
-      { "type": "why", "data": { "eyebrow": "Creative philosophy", "title": "How we work" } },
+      {
+        "type": "why",
+        "data": {
+          "eyebrow": "Creative philosophy",
+          "title": "How we work"
+        }
+      },
       "team",
       "partners",
       "cta"
     ],
     "music": [
-      { "type": "pagehero", "data": { "title": "Music & live shows", "subtitle": "Concerts, festivals and live performances." } },
-      { "type": "events", "data": { "title": "Upcoming live performances", "types": "concert,festival,live_show" } },
-      { "type": "artists", "data": { "category": "Music" } },
-      { "type": "gallery", "data": { "title": "Past concert gallery", "category": "Concert" } },
+      {
+        "type": "pagehero",
+        "data": {
+          "title": "Music & live shows",
+          "subtitle": "Concerts, festivals and live performances."
+        }
+      },
+      {
+        "type": "events",
+        "data": {
+          "title": "Upcoming live performances",
+          "types": "concert,festival,live_show"
+        }
+      },
+      {
+        "type": "artists",
+        "data": {
+          "category": "Music"
+        }
+      },
+      {
+        "type": "gallery",
+        "data": {
+          "title": "Past concert gallery",
+          "category": "Concert"
+        }
+      },
       "videos",
       "cta"
     ],
     "film": [
-      { "type": "pagehero", "data": { "title": "Film & movie production", "subtitle": "Feature films and productions." } },
-      { "type": "productions", "data": { "title": "Our films", "limit": 0 } },
-      { "type": "gallery", "data": { "title": "Behind the scenes", "category": "Behind the scenes" } },
+      {
+        "type": "pagehero",
+        "data": {
+          "title": "Film & movie production",
+          "subtitle": "Feature films and productions."
+        }
+      },
+      {
+        "type": "productions",
+        "data": {
+          "title": "Our films",
+          "limit": 0
+        }
+      },
+      {
+        "type": "gallery",
+        "data": {
+          "title": "Behind the scenes",
+          "category": "Behind the scenes"
+        }
+      },
       "cta"
     ],
     "music-production": [
-      { "type": "pagehero", "data": { "title": "Music production", "subtitle": "Recording, composition and audio production." } },
+      {
+        "type": "pagehero",
+        "data": {
+          "title": "Music production",
+          "subtitle": "Recording, composition and audio production."
+        }
+      },
       {
         "type": "why",
         "data": {
           "eyebrow": "Services",
           "title": "From first take to final master",
           "items": [
-            { "title": "Music recording", "description": "Placeholder description." },
-            { "title": "Audio production", "description": "Placeholder description." },
-            { "title": "Music composition", "description": "Placeholder description." },
-            { "title": "Artist collaboration", "description": "Placeholder description." },
-            { "title": "Music videos", "description": "Placeholder description." }
+            {
+              "title": "Music recording",
+              "description": "Placeholder description."
+            },
+            {
+              "title": "Audio production",
+              "description": "Placeholder description."
+            },
+            {
+              "title": "Music composition",
+              "description": "Placeholder description."
+            },
+            {
+              "title": "Artist collaboration",
+              "description": "Placeholder description."
+            },
+            {
+              "title": "Music videos",
+              "description": "Placeholder description."
+            }
           ]
         }
       },
       "releases",
-      { "type": "enquiry", "data": { "title": "Start a music project", "kind": "music_production" } }
+      {
+        "type": "enquiry",
+        "data": {
+          "title": "Start a music project",
+          "kind": "music_production"
+        }
+      }
     ],
     "event-management": [
-      { "type": "pagehero", "data": { "title": "Event management", "subtitle": "Corporate events, festivals, concerts and celebrity shows." } },
+      {
+        "type": "pagehero",
+        "data": {
+          "title": "Event management",
+          "subtitle": "Corporate events, festivals, concerts and celebrity shows."
+        }
+      },
       {
         "type": "why",
         "data": {
           "eyebrow": "What we manage",
           "title": "Every kind of event",
           "items": [
-            { "title": "Corporate events", "description": "Placeholder description." },
-            { "title": "Cultural festivals", "description": "Placeholder description." },
-            { "title": "Concert management", "description": "Placeholder description." },
-            { "title": "Celebrity shows", "description": "Placeholder description." },
-            { "title": "Private events", "description": "Placeholder description." },
-            { "title": "Brand activations", "description": "Placeholder description." }
+            {
+              "title": "Corporate events",
+              "description": "Placeholder description."
+            },
+            {
+              "title": "Cultural festivals",
+              "description": "Placeholder description."
+            },
+            {
+              "title": "Concert management",
+              "description": "Placeholder description."
+            },
+            {
+              "title": "Celebrity shows",
+              "description": "Placeholder description."
+            },
+            {
+              "title": "Private events",
+              "description": "Placeholder description."
+            },
+            {
+              "title": "Brand activations",
+              "description": "Placeholder description."
+            }
           ]
         }
       },
-      { "type": "richtext", "data": { "eyebrow": "Production", "title": "Stage, sound, lighting and production management", "body": "Placeholder: describe your technical production capabilities." } },
+      {
+        "type": "richtext",
+        "data": {
+          "eyebrow": "Production",
+          "title": "Stage, sound, lighting and production management",
+          "body": "Placeholder: describe your technical production capabilities."
+        }
+      },
       "portfolio",
-      { "type": "enquiry", "data": { "title": "Plan your event with us", "kind": "event_management" } }
+      {
+        "type": "enquiry",
+        "data": {
+          "title": "Plan your event with us",
+          "kind": "event_management"
+        }
+      }
     ],
     "comedy": [
-      { "type": "pagehero", "data": { "title": "Stand-up comedy", "subtitle": "Live comedy shows and the comedians behind them." } },
-      { "type": "events", "data": { "title": "Upcoming comedy shows", "types": "live_show" } },
-      { "type": "artists", "data": { "title": "Comedians", "category": "Comedy" } },
+      {
+        "type": "pagehero",
+        "data": {
+          "title": "Stand-up comedy",
+          "subtitle": "Live comedy shows and the comedians behind them."
+        }
+      },
+      {
+        "type": "events",
+        "data": {
+          "title": "Upcoming comedy shows",
+          "types": "live_show"
+        }
+      },
+      {
+        "type": "artists",
+        "data": {
+          "title": "Comedians",
+          "category": "Comedy"
+        }
+      },
       "videos",
       "cta"
     ],
     "portfolio": [
-      { "type": "pagehero", "data": { "title": "Portfolio & gallery", "subtitle": "Photos and videos from our work." } },
-      { "type": "gallery", "data": { "title": "Photo gallery" } },
+      {
+        "type": "pagehero",
+        "data": {
+          "title": "Portfolio & gallery",
+          "subtitle": "Photos and videos from our work."
+        }
+      },
+      {
+        "type": "gallery",
+        "data": {
+          "title": "Photo gallery"
+        }
+      },
       "videos"
     ],
     "contact": [
-      { "type": "pagehero", "data": { "title": "Contact us", "subtitle": "Business, event booking and production enquiries." } },
+      {
+        "type": "pagehero",
+        "data": {
+          "title": "Contact us",
+          "subtitle": "Business, event booking and production enquiries."
+        }
+      },
       "contact",
-      { "type": "enquiry", "data": { "title": "Send us a message", "kind": "contact" } }
+      {
+        "type": "enquiry",
+        "data": {
+          "title": "Send us a message",
+          "kind": "contact"
+        }
+      }
     ]
   }
 }

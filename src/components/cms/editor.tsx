@@ -100,7 +100,7 @@ function ImageField({ value, onChange }: { value: string; onChange: (v: string) 
 }
 
 function FieldInput({ field, value, onChange }: { field: Exclude<BlockField, { kind: "list" }>; value: string; onChange: (v: string) => void }) {
-  if (field.kind === "textarea") return <textarea rows={4} value={value} onChange={(e) => onChange(e.target.value)} className={input} />;
+  if (field.kind === "textarea") return <textarea rows={field.key === "body" ? 10 : 4} value={value} onChange={(e) => onChange(e.target.value)} className={input} />;
   if (field.kind === "image") return <ImageField value={value} onChange={onChange} />;
   if (field.kind === "select") {
     return (
@@ -171,7 +171,11 @@ function Fields({ fields, data, prefix, onSet }: { fields: BlockField[]; data: B
           <label key={path} className="block space-y-1">
             <span className="text-xs font-bold uppercase tracking-[0.15em] text-muted-foreground">{field.label}</span>
             <FieldInput field={field} value={value} onChange={(v) => onSet(path, field.kind === "number" ? (v === "" ? "" : Number(v)) : v)} />
-            {field.help && <span className="block text-xs text-muted-foreground">{field.help}</span>}
+            {(field.help || (field.kind === "textarea" && field.key !== "description")) && (
+              <span className="block text-xs text-muted-foreground">
+                {field.help ?? "Formatting: **bold**, *italic*, [link text](https://…), - bullet list. A blank line starts a new paragraph."}
+              </span>
+            )}
           </label>
         );
       })}
